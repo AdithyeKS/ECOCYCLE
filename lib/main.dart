@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/splash_screen.dart';
+import 'package:ecocycle_1/app_theme.dart';
+import 'package:ecocycle_1/core/supabase_config.dart';
+import 'package:ecocycle_1/screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Supabase.initialize(
-    url: 'https://zqrzstbhvteaxkosirnk.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxcnpzdGJodnRlYXhrb3Npcm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjM5ODksImV4cCI6MjA3NzkzOTk4OX0.kjl__LsXiIj7RtVItYLxsUAD1ktTXNuYCGwc6uc9vR0',
-  );
-
+  await AppSupabase.init(); // Initialize Supabase before app runs
   runApp(const EcoCycleApp());
 }
 
@@ -22,8 +17,8 @@ class EcoCycleApp extends StatelessWidget {
     return MaterialApp(
       title: 'EcoCycle',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.green),
-      home: const SplashScreen(),
+      theme: AppTheme.light, // Your custom light theme
+      home: const SplashScreen(), // First screen after launch
     );
   }
 }

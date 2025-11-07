@@ -1,46 +1,59 @@
 import 'package:flutter/material.dart';
-import 'add_ewaste_screen.dart';
-import 'view_ewaste_screen.dart';
+import 'package:ecocycle_1/widgets/round_action.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('EcoCycle Dashboard')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/images/ecocycle.png', height: 100),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add E-Waste'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green, padding: const EdgeInsets.all(15)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddEwasteScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.view_list),
-              label: const Text('View My E-Waste'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue, padding: const EdgeInsets.all(15)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ViewEwasteScreen()),
-                );
-              },
-            ),
-          ],
+    final greeting = Text.rich(
+      TextSpan(children: [
+        const TextSpan(text: 'Hello,\n', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+        TextSpan(
+          text: 'What would you like to do today?',
+          style: TextStyle(fontSize: 18, color: Colors.grey.shade700),
+        ),
+      ]),
+    );
+
+    return SafeArea(
+      child: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const CircleAvatar(radius: 34, backgroundColor: Color(0xFFE7F1EA), child: Icon(Icons.person, size: 36)),
+                const SizedBox(width: 16),
+                Expanded(child: greeting),
+              ]),
+              const SizedBox(height: 28),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  RoundAction(
+                    icon: Icons.search,
+                    title: 'Search product or shop',
+                    onTap: () {},
+                  ),
+                  RoundAction(
+                    icon: Icons.add,
+                    title: 'Add a shop into the map',
+                    onTap: () {},
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              Center(
+                child: RoundAction(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'Do a challenge',
+                  onTap: () {},
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

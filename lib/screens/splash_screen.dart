@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
+import 'package:ecocycle_1/core/supabase_config.dart';
+import 'package:ecocycle_1/screens/home_shell.dart';
+import 'package:ecocycle_1/screens/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,33 +14,35 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pushReplacement(
-        context,
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await Future.delayed(const Duration(milliseconds: 900));
+    final session = AppSupabase.client.auth.currentSession;
+    if (!mounted) return;
+    if (session != null && session.user.emailConfirmedAt != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeShell()),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
+    return Scaffold(
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.recycling, color: Colors.green, size: 90),
-            SizedBox(height: 20),
-            Text(
-              'EcoCycle',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 10),
-            Text('E-Waste & Cloth Recycling App',
-                style: TextStyle(fontSize: 16, color: Colors.grey)),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Image.asset('assets/images/ecocycle.png', width: 160),
+          const SizedBox(height: 16),
+          const Text('EcoCycle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 18),
+          const CircularProgressIndicator()
+        ]),
       ),
     );
   }

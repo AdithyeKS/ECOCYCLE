@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login_screen.dart';
+import 'package:ecocycle_1/core/supabase_config.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -10,62 +9,92 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
-  bool isLoading = false;
+  final _form = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _busy = false;
+  String? _msg;
 
-  Future<void> signup() async {
-    setState(() => isLoading = true);
+  Future<void> _signup() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() { _busy = true; _msg = null; });
+
     try {
-      await Supabase.instance.client.auth.signUp(
-        email: emailController.text,
-        password: passwordController.text,
+      final res = await AppSupabase.client.auth.signUp(
+        email: _email.text.trim(),
+        password: _password.text,
+        data: {
+          'full_name': _name.text.trim(),
+          'phone': _phone.text.trim(),
+        },
+        emailRedirectTo: null, // uses site url; optional deep link
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Signup successful! Please login.')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+
+      // Supabase will send a verification email automatically (if Confirm Email is ON).
+      setState(() {
+        _msg = (res.user != null)
+            ? 'Verification email sent to ${_email.text}. Please verify and then login.'
+            : 'Sign-up failed, try again.';
+      });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Signup failed: $e')),
-      );
+      setState(() { _msg = e.toString(); });
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(30),
-        child: Center(
+      appBar: AppBar(title: const Text('Create account')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _form,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('Create an Account',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
-              const SizedBox(height: 10),
-              TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: isLoading ? null : signup,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Sign Up'),
+              TextFormField(
+                controller: _name,
+                decoration: const InputDecoration(labelText: 'Full name'),
+                validator: (v) => (v==null||v.trim().length<3) ? 'Enter your name' : null,
               ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phone,
+                decoration: const InputDecoration(labelText: 'Mobile number'),
+                keyboardType: TextInputType.phone,
+                validator: (v) => (v==null||v.trim().length<8) ? 'Enter a valid number' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: (v) => (v==null||!v.contains('@')) ? 'Enter a valid email' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _password,
+                decoration: const InputDecoration(labelText: 'Password (min 8, 1 number, 1 letter)'),
+                obscureText: true,
+                validator: (v) {
+                  if (v == null || v.length < 8) return 'Min 8 characters';
+                  if (!RegExp(r'[A-Za-z]').hasMatch(v) || !RegExp(r'\d').hasMatch(v)) {
+                    return 'Use letters and numbers';
+                  }
+                  return null;
                 },
-                child: const Text('Already have an account? Login'),
+              ),
+              const SizedBox(height: 16),
+              if (_msg != null) ...[
+                Text(_msg!, textAlign: TextAlign.center),
+                const SizedBox(height: 10),
+              ],
+              FilledButton(
+                onPressed: _busy ? null : _signup,
+                child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Sign up'),
               ),
             ],
           ),
