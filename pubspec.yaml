@@ -1,0 +1,25 @@
+name: ecocycle_1
+description: Smart E-Waste and Cloth Recycling App using Supabase
+publish_to: "none"
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  supabase_flutter: ^2.5.6
+  image_picker: ^1.0.7
+  path: ^1.9.0
+  path_provider: ^2.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/ecocycle.png
