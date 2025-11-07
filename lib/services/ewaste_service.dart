@@ -4,8 +4,27 @@ import '../core/supabase_config.dart';
 import '../models/ewaste_item.dart';
 
 class EwasteService {
-  final supabase = AppSupabase.client;
+  final SupabaseClient supabase = AppSupabase.client;
   static const bucket = 'ewaste_images';
+
+  int _calculateRewardPoints(String categoryId) {
+    // Base points for all e-waste items
+    const basePoints = 50;
+
+    // Additional points based on category
+    final categoryBonus = switch (categoryId) {
+      'tv' => 100, // TVs & Monitors (larger items)
+      'computer' => 80, // Computers
+      'appliances' => 120, // Home Appliances (largest items)
+      'mobile' => 30, // Mobile Devices (smaller items)
+      'peripherals' => 20, // Computer Peripherals
+      'entertainment' => 40, // Entertainment Devices
+      'batteries' => 15, // Batteries
+      _ => 25, // Other Electronics
+    };
+
+    return basePoints + categoryBonus;
+  }
 
   Future<String> uploadImage(File file) async {
     final filename = 'ew_${DateTime.now().millisecondsSinceEpoch}.png';
@@ -15,17 +34,20 @@ class EwasteService {
   }
 
   Future<void> insertEwaste({
+    required String categoryId,
     required String itemName,
     required String description,
     required String location,
     required String imageUrl,
   }) async {
     await supabase.from('ewaste_items').insert({
+      'category_id': categoryId,
       'item_name': itemName,
       'description': description,
       'location': location,
       'image_url': imageUrl,
       'status': 'Pending',
+      'reward_points': _calculateRewardPoints(categoryId),
     });
   }
 
@@ -42,7 +64,9 @@ class EwasteService {
   }
 
   Future<void> assignTo(int id, String name) async {
-    await supabase.from('ewaste_items').update({'assigned_to': name}).eq('id', id);
+    await supabase
+        .from('ewaste_items')
+        .update({'assigned_to': name}).eq('id', id);
   }
 
   Future<void> deleteItem(int id) async {

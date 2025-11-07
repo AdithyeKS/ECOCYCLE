@@ -1,16 +1,33 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static ThemeData light = ThemeData(
-    colorSchemeSeed: const Color(0xFF28A745), // greenish
-    scaffoldBackgroundColor: Colors.white,
+  static final light = ThemeData(
+    brightness: Brightness.light,
+    colorSchemeSeed: Colors.green,
+    scaffoldBackgroundColor: Colors.grey[50],
+    cardColor: Colors.white,
+    shadowColor: Colors.black,
     useMaterial3: true,
-    fontFamily: 'Roboto',
-    appBarTheme: const AppBarTheme(centerTitle: false),
-    inputDecorationTheme: const InputDecorationTheme(
-      border: OutlineInputBorder(),
-      filled: true,
-      fillColor: Color(0xFFF7F8FA),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      ),
+    ),
+  );
+
+  static final dark = ThemeData(
+    brightness: Brightness.dark,
+    colorSchemeSeed: Colors.green,
+    scaffoldBackgroundColor: const Color(0xFF121212),
+    cardColor: const Color(0xFF242424),
+    shadowColor: Colors.black,
+    useMaterial3: true,
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      ),
     ),
   );
 }

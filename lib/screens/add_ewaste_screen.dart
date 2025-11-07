@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/ewaste_category.dart';
+import '../services/ewaste_service.dart';
 
 class AddEwasteScreen extends StatefulWidget {
   const AddEwasteScreen({super.key});
@@ -11,99 +13,289 @@ class AddEwasteScreen extends StatefulWidget {
 }
 
 class _AddEwasteScreenState extends State<AddEwasteScreen> {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController descController = TextEditingController();
-  final TextEditingController locationController = TextEditingController();
-  File? imageFile;
-  bool isUploading = false;
+  final _formKey = GlobalKey<FormState>();
+  String? _selectedCategoryId;
+  File? _imageFile;
+  bool _isLoading = false;
+  final _ewasteService = EwasteService();
 
-  Future<void> pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => imageFile = File(picked.path));
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _locationController = TextEditingController();
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1200,
+      imageQuality: 85,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
     }
   }
 
-  Future<void> uploadData() async {
-    if (nameController.text.isEmpty || imageFile == null) {
+  Future<void> _submitItem() async {
+    if (!_formKey.currentState!.validate() ||
+        _imageFile == null ||
+        _selectedCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields and select an image')),
+        SnackBar(content: Text(tr('please_fill_all_fields'))),
       );
       return;
     }
 
-    setState(() => isUploading = true);
+    setState(() => _isLoading = true);
 
     try {
-      final fileName = 'ewaste_${DateTime.now().millisecondsSinceEpoch}.png';
-      final filePath = 'uploads/$fileName';
+      final imageUrl = await _ewasteService.uploadImage(_imageFile!);
 
-      await Supabase.instance.client.storage
-          .from('ewaste_images')
-          .upload(filePath, imageFile!);
-
-      final imageUrl = Supabase.instance.client.storage
-          .from('ewaste_images')
-          .getPublicUrl(filePath);
-
-      await Supabase.instance.client.from('ewaste_items').insert({
-        'item_name': nameController.text,
-        'description': descController.text,
-        'location': locationController.text,
-        'status': 'Pending',
-        'image_url': imageUrl,
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Uploaded successfully!')),
+      await _ewasteService.insertEwaste(
+        categoryId: _selectedCategoryId!,
+        itemName: _titleController.text,
+        description: _descriptionController.text,
+        location: _locationController.text,
+        imageUrl: imageUrl,
       );
 
-      setState(() {
-        isUploading = false;
-        imageFile = null;
-        nameController.clear();
-        descController.clear();
-        locationController.clear();
-      });
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('item_added_successfully'))),
+        );
+      }
     } catch (e) {
-      setState(() => isUploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Upload failed: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add E-Waste')),
-      body: Padding(
+      appBar: AppBar(
+        title: Text(tr('add_ewaste')),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient:
+                LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Item Name')),
-              const SizedBox(height: 10),
-              TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
-              const SizedBox(height: 10),
-              TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location')),
-              const SizedBox(height: 15),
-              if (imageFile != null)
-                Image.file(imageFile!, width: 150, height: 150, fit: BoxFit.cover),
-              const SizedBox(height: 10),
-              ElevatedButton(onPressed: pickImage, child: const Text('Pick Image')),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: isUploading ? null : uploadData,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: isUploading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Upload'),
+              // Category selector
+              Text(tr('select_category'),
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.5,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: ewasteCategories.length,
+                itemBuilder: (context, index) {
+                  final category = ewasteCategories[index];
+                  final isSelected = category.id == _selectedCategoryId;
+                  return InkWell(
+                    onTap: () {
+                      setState(() => _selectedCategoryId = category.id);
+                      // Show examples bottom sheet
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (ctx) => Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(category.name,
+                                  style:
+                                      Theme.of(context).textTheme.titleLarge),
+                              const SizedBox(height: 16),
+                              Text(tr('examples'),
+                                  style: const TextStyle(color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              ...category.examples.map((e) => Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.check_circle_outline,
+                                            color: Colors.green, size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(e),
+                                      ],
+                                    ),
+                                  )),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.green.withOpacity(0.1)
+                            : Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.green
+                              : Colors.grey.withOpacity(0.2),
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(category.icon,
+                              style: const TextStyle(fontSize: 24)),
+                          const SizedBox(height: 4),
+                          Text(
+                            category.name,
+                            style: TextStyle(
+                              color: isSelected ? Colors.green : null,
+                              fontWeight: isSelected ? FontWeight.bold : null,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Image picker
+              Center(
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                      image: _imageFile != null
+                          ? DecorationImage(
+                              image: FileImage(_imageFile!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: _imageFile == null
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.camera_alt,
+                                  size: 48, color: Colors.grey[400]),
+                              const SizedBox(height: 8),
+                              Text(tr('tap_to_take_photo'),
+                                  style: TextStyle(color: Colors.grey[600])),
+                            ],
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Title field
+              TextFormField(
+                controller: _titleController,
+                decoration: InputDecoration(
+                  labelText: tr('item_title'),
+                  border: const OutlineInputBorder(),
+                ),
+                validator: (value) =>
+                    value?.isEmpty == true ? tr('required_field') : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Description field
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: tr('description'),
+                  border: const OutlineInputBorder(),
+                ),
+                validator: (value) =>
+                    value?.isEmpty == true ? tr('required_field') : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Location field
+              TextFormField(
+                controller: _locationController,
+                decoration: InputDecoration(
+                  labelText: tr('pickup_location'),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.my_location),
+                    onPressed: () {
+                      // TODO: Implement current location
+                    },
+                  ),
+                ),
+                validator: (value) =>
+                    value?.isEmpty == true ? tr('required_field') : null,
+              ),
+              const SizedBox(height: 24),
+
+              // Submit button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isLoading ? null : _submitItem,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.file_upload_outlined),
+                  label: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(_isLoading ? tr('uploading') : tr('submit')),
+                  ),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _locationController.dispose();
+    super.dispose();
   }
 }

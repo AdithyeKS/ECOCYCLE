@@ -5,7 +5,8 @@ import 'package:ecocycle_1/screens/home_shell.dart';
 import 'package:ecocycle_1/screens/signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final VoidCallback? onThemeToggle;
+  const LoginScreen({super.key, this.onThemeToggle});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -20,7 +21,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_form.currentState!.validate()) return;
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
       final res = await AppSupabase.client.auth.signInWithPassword(
         email: _email.text.trim(),
@@ -34,7 +38,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeShell()));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                HomeShell(toggleTheme: widget.onThemeToggle ?? () {})),
+      );
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -59,21 +68,27 @@ class _LoginScreenState extends State<LoginScreen> {
               TextFormField(
                 controller: _email,
                 decoration: const InputDecoration(labelText: 'Email'),
-                validator: (v) => (v==null||!v.contains('@')) ? 'Enter a valid email' : null,
+                validator: (v) => (v == null || !v.contains('@'))
+                    ? 'Enter a valid email'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _password,
                 decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
-                validator: (v) => (v==null||v.length<8) ? 'Min 8 characters' : null,
+                validator: (v) =>
+                    (v == null || v.length < 8) ? 'Min 8 characters' : null,
               ),
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen()));
                   },
                   child: const Text('Forgot password?'),
                 ),
@@ -85,14 +100,23 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: _busy ? null : _login,
-                child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('Login'),
+                child: _busy
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Login'),
               ),
               const SizedBox(height: 12),
               OutlinedButton(
-                onPressed: _busy ? null : () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupScreen()));
-                },
+                onPressed: _busy
+                    ? null
+                    : () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const SignupScreen()));
+                      },
                 child: const Text('Create account'),
               ),
             ],
