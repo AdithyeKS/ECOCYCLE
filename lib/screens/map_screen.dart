@@ -76,9 +76,10 @@ class _MapScreenState extends State<MapScreen> {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) {
       // show a message
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Location services are disabled')));
+      }
       return;
     }
     var perm = await Geolocator.checkPermission();
@@ -87,9 +88,10 @@ class _MapScreenState extends State<MapScreen> {
     }
     if (perm == LocationPermission.deniedForever ||
         perm == LocationPermission.denied) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Location permission denied')));
+      }
       return;
     }
 
@@ -103,9 +105,10 @@ class _MapScreenState extends State<MapScreen> {
     _controller.move(_center, 15);
     _computeNearest();
     // automatically show nearest list for convenience
-    if (mounted)
+    if (mounted) {
       Future.delayed(
           const Duration(milliseconds: 400), () => _showNearestSheet());
+    }
   }
 
   void _computeNearest() {
@@ -126,9 +129,10 @@ class _MapScreenState extends State<MapScreen> {
     final uri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lon}&travelmode=driving');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Could not open maps')));
+      }
     }
   }
 
@@ -169,7 +173,7 @@ class _MapScreenState extends State<MapScreen> {
                   child: const Text('Navigate'),
                 ),
               );
-            }).toList(),
+            }),
             const SizedBox(height: 12)
           ],
         ),
