@@ -10,6 +10,7 @@
   "rewards": "Rewards",
   "active_challenges": "Active Challenges",
   "rewards_coming_soon": "Redeem your EcoPoints for rewards (coming soon)",
+  "available_rewards": "Available Rewards",
   "dark_mode": "Dark Mode",
   "language": "Language",
   "delete_account": "Delete Account",
@@ -28,5 +29,14 @@
   "please_fill_all_fields": "Please fill all fields and take a photo",
   "item_added_successfully": "Item added successfully! You'll earn reward points when it's collected.",
   "submit": "Submit",
-  "uploading": "Uploading..."
+  "uploading": "Uploading...",
+  "eco_points": "Eco Points",
+  "keep_recycling": "Keep Recycling!",
+  "your_badges": "Your Badges",
+  "redeem_rewards": "Redeem Rewards",
+  "points": "points",
+  "redeem": "Redeem",
+  "e_waste_hero": "E-Waste Hero",
+  "cloth_saver": "Cloth Saver",
+  "eco_champion": "Eco Champion"
 }

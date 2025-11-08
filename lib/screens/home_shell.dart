@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:ecocycle_1/screens/home_screen.dart';
 import 'package:ecocycle_1/screens/map_screen.dart';
+import 'package:ecocycle_1/screens/rewards_screen.dart';
 import 'package:ecocycle_1/screens/settings_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -23,7 +24,7 @@ class _HomeShellState extends State<HomeShell> {
     _screens = [
       HomeScreen(toggleTheme: widget.toggleTheme),
       const MapScreen(), // Map Screen (OpenStreetMap)
-      const Placeholder(), // Rewards Screen (future feature)
+      const RewardsScreen(), // Rewards Screen
       SettingsScreen(toggleTheme: widget.toggleTheme),
     ];
   }

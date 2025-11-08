@@ -28,5 +28,14 @@
   "please_fill_all_fields": "कृपया सभी फ़ील्ड भरें और फोटो लें",
   "item_added_successfully": "वस्तु सफलतापूर्वक जोड़ी गई! इसे एकत्र किए जाने पर आपको रिवार्ड पॉइंट्स मिलेंगे।",
   "submit": "जमा करें",
-  "uploading": "अपलोड हो रहा है..."
+  "uploading": "अपलोड हो रहा है...",
+  "eco_points": "इको पॉइंट्स",
+  "keep_recycling": "रीसाइक्लिंग जारी रखें!",
+  "your_badges": "आपके बैज",
+  "redeem_rewards": "पुरस्कार रिडीम करें",
+  "points": "पॉइंट्स",
+  "redeem": "रिडीम करें",
+  "e_waste_hero": "ई-वेस्ट हीरो",
+  "cloth_saver": "कपड़ा सेवर",
+  "eco_champion": "इको चैंपियन"
 }
