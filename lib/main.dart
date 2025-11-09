@@ -9,16 +9,25 @@ import 'package:easy_localization/easy_localization.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
-  await AppSupabase.init();
+
+  // ✅ Proper Supabase initialization with persistent login session
+  await Supabase.initialize(
+    url: AppSupabase.url,
+    anonKey: AppSupabase.anonKey,
+    debug: true,
+    authOptions: const FlutterAuthClientOptions(
+      autoRefreshToken: true, // Keeps the session alive
+    ),
+  );
 
   runApp(
     EasyLocalization(
       supportedLocales: const [
-        Locale('en'),
-        Locale('hi'),
-        Locale('ml'),
+        Locale('en'), // English
+        Locale('hi'), // Hindi
+        Locale('ml'), // Malayalam
       ],
-      path: 'assets/translations',
+      path: 'assets/translations', // Make sure this folder exists
       fallbackLocale: const Locale('en'),
       child: const EcoCycleApp(),
     ),
@@ -55,6 +64,7 @@ class _EcoCycleAppState extends State<EcoCycleApp> {
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
       locale: context.locale,
+      // ✅ Automatically show login or home based on saved Supabase session
       home: session == null
           ? LoginScreen(onThemeToggle: _toggleTheme)
           : HomeScreen(toggleTheme: _toggleTheme),
