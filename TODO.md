@@ -1,4 +1,1 @@
-- [x] Add modern URL image to rewards tab
-- [x] Include points summary in rewards tab
-- [x] Create list of actionable rewards with redeem functionality
-- [x] Style rewards like challenges tab
+- [x] Update forgot_password_screen.dart with modern mobile UI: background image, centered card, red send button like sign out.
