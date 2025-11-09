@@ -77,8 +77,9 @@ class _MapScreenState extends State<MapScreen> {
     if (!enabled) {
       // show a message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location services are disabled')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Location services are disabled. Please enable them in settings.')));
       }
       return;
     }
@@ -89,25 +90,33 @@ class _MapScreenState extends State<MapScreen> {
     if (perm == LocationPermission.deniedForever ||
         perm == LocationPermission.denied) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission denied')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Location permission denied. Please grant permission in app settings.')));
       }
       return;
     }
 
-    final p = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    final me = LatLng(p.latitude, p.longitude);
-    setState(() {
-      _me = me;
-      _center = me;
-    });
-    _controller.move(_center, 15);
-    _computeNearest();
-    // automatically show nearest list for convenience
-    if (mounted) {
-      Future.delayed(
-          const Duration(milliseconds: 400), () => _showNearestSheet());
+    try {
+      final p = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      final me = LatLng(p.latitude, p.longitude);
+      setState(() {
+        _me = me;
+        _center = me;
+      });
+      _controller.move(_center, 15);
+      _computeNearest();
+      // automatically show nearest list for convenience
+      if (mounted) {
+        Future.delayed(
+            const Duration(milliseconds: 400), () => _showNearestSheet());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error getting location: $e')));
+      }
     }
   }
 
@@ -262,13 +271,22 @@ class _MapScreenState extends State<MapScreen> {
       ),
       body: FlutterMap(
         mapController: _controller,
-        options: MapOptions(center: _center, zoom: 12),
+        options: MapOptions(initialCenter: _center, initialZoom: 12),
         children: [
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.example.ecocycle_1',
           ),
           MarkerLayer(markers: markers),
+          RichAttributionWidget(
+            attributions: [
+              TextSourceAttribution(
+                'OpenStreetMap contributors',
+                onTap: () =>
+                    launchUrl(Uri.parse('https://openstreetmap.org/copyright')),
+              ),
+            ],
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

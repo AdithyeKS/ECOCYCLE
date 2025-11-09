@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ecocycle_1/app_theme.dart';
 import 'package:ecocycle_1/core/supabase_config.dart';
 import 'package:ecocycle_1/screens/home_screen.dart';
+import 'package:ecocycle_1/screens/home_shell.dart';
 import 'package:ecocycle_1/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -67,7 +68,7 @@ class _EcoCycleAppState extends State<EcoCycleApp> {
       // ✅ Automatically show login or home based on saved Supabase session
       home: session == null
           ? LoginScreen(onThemeToggle: _toggleTheme)
-          : HomeScreen(toggleTheme: _toggleTheme),
+          : HomeShell(toggleTheme: _toggleTheme),
     );
   }
 }

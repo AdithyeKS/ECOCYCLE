@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:ecocycle_1/screens/view_ewaste_screen.dart';
+import 'package:ecocycle_1/screens/ewaste_dashboard_screen.dart';
 import 'package:ecocycle_1/screens/contribute_screen.dart';
 import 'package:ecocycle_1/screens/profile_screen.dart';
 
@@ -132,9 +132,9 @@ class HomeScreen extends StatelessWidget {
               context,
               icon: Icons.electric_bolt,
               title: tr('ewaste'),
-              subtitle: tr('view_your_ewaste'),
+              subtitle: tr('manage_your_ewaste'),
               color: Colors.deepOrange,
-              onTap: () => _open(context, const ViewEwasteScreen()),
+              onTap: () => _open(context, const EwasteDashboardScreen()),
             ),
             const SizedBox(height: 12),
             _actionCard(

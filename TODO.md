@@ -1,1 +1,2 @@
 - [x] Update forgot_password_screen.dart with modern mobile UI: background image, centered card, red send button like sign out.
+- [x] Update settings_screen.dart with modern mobile UI: cards, sections, background image, improved styling.
