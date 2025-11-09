@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:ecocycle_1/screens/ewaste_dashboard_screen.dart';
-import 'package:ecocycle_1/screens/contribute_screen.dart';
+import 'package:ecocycle_1/screens/cloth_dashboard_screen.dart';
 import 'package:ecocycle_1/screens/profile_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -141,9 +141,9 @@ class HomeScreen extends StatelessWidget {
               context,
               icon: Icons.shopping_bag_outlined,
               title: tr('cloth'),
-              subtitle: tr('contribute_clothes'),
+              subtitle: tr('manage_your_clothes'),
               color: Colors.indigo,
-              onTap: () => _open(context, const ContributeScreen()),
+              onTap: () => _open(context, const ClothDashboardScreen()),
             ),
             const SizedBox(height: 24),
 
