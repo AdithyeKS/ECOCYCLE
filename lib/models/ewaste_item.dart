@@ -11,6 +11,15 @@ class EwasteItem {
   final int? rewardPoints;
   final Map<String, dynamic>? metadata;
 
+  // New fields for NGO and pickup system
+  final String? assignedAgentId;
+  final String? assignedNgoId;
+  final String deliveryStatus;
+  final List<Map<String, dynamic>>? trackingNotes;
+  final DateTime? pickupScheduledAt;
+  final DateTime? collectedAt;
+  final DateTime? deliveredAt;
+
   EwasteItem({
     required this.id,
     required this.categoryId,
@@ -23,6 +32,13 @@ class EwasteItem {
     required this.createdAt,
     this.rewardPoints,
     this.metadata,
+    this.assignedAgentId,
+    this.assignedNgoId,
+    this.deliveryStatus = 'pending',
+    this.trackingNotes,
+    this.pickupScheduledAt,
+    this.collectedAt,
+    this.deliveredAt,
   });
 
   factory EwasteItem.fromJson(Map<String, dynamic> json) => EwasteItem(
@@ -38,5 +54,20 @@ class EwasteItem {
             DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
         rewardPoints: json['reward_points'] as int?,
         metadata: json['metadata'] as Map<String, dynamic>?,
+        assignedAgentId: json['assigned_agent_id'] as String?,
+        assignedNgoId: json['assigned_ngo_id'] as String?,
+        deliveryStatus: json['delivery_status'] ?? 'pending',
+        trackingNotes: json['tracking_notes'] != null
+            ? List<Map<String, dynamic>>.from(json['tracking_notes'])
+            : null,
+        pickupScheduledAt: json['pickup_scheduled_at'] != null
+            ? DateTime.tryParse(json['pickup_scheduled_at'])
+            : null,
+        collectedAt: json['collected_at'] != null
+            ? DateTime.tryParse(json['collected_at'])
+            : null,
+        deliveredAt: json['delivered_at'] != null
+            ? DateTime.tryParse(json['delivered_at'])
+            : null,
       );
 }

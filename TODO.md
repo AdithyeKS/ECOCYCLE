@@ -1,2 +1,13 @@
-- [x] Update forgot_password_screen.dart with modern mobile UI: background image, centered card, red send button like sign out.
-- [x] Update settings_screen.dart with modern mobile UI: cards, sections, background image, improved styling.
+- [x] Update database schema: Add NGOs table, pickup_agents table, extend ewaste_items with assigned_agent, assigned_ngo, delivery_status, tracking_notes
+- [x] Create NGO model (lib/models/ngo.dart)
+- [x] Create PickupAgent model (lib/models/pickup_agent.dart)
+- [x] Update EwasteItem model to include new fields
+- [x] Update EwasteService with NGO and agent methods
+- [x] Create NGO management screen (lib/screens/ngo_management_screen.dart)
+- [x] Create pickup request screen (lib/screens/pickup_request_screen.dart)
+- [x] Create agent dashboard screen (lib/screens/agent_dashboard.dart)
+- [x] Update admin_dashboard.dart to include NGO/agent assignment UI
+- [x] Update ewaste_dashboard_screen.dart to implement actual pickup request instead of "coming soon"
+- [x] Update view_ewaste_screen.dart to show tracking information
+- [x] Add navigation routes for new screens in main.dart or routing file (navigation handled within screens)
+- [ ] Test complete flow: User submits → Admin assigns → Agent collects → Delivers to NGO

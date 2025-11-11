@@ -25,6 +25,43 @@ ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS reward_points INTEGER;
 ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS assigned_to TEXT;
 ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS metadata JSONB;
 
+-- New tables for NGO and pickup agent system
+CREATE TABLE IF NOT EXISTS ngos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  address TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  is_government_approved BOOLEAN DEFAULT TRUE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pickup_agents (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT,
+  vehicle_number TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  current_latitude DOUBLE PRECISION,
+  current_longitude DOUBLE PRECISION,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Extend ewaste_items table with new columns for the complete flow
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS assigned_agent_id UUID REFERENCES pickup_agents(id);
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS assigned_ngo_id UUID REFERENCES ngos(id);
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending'; -- pending, assigned, collected, delivered
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS tracking_notes JSONB; -- Array of tracking updates with timestamps
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS pickup_scheduled_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS collected_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;
+
 -- Rename columns to match code expectations (optional, or update code instead):
 -- ALTER TABLE ewaste_items RENAME COLUMN title TO item_name;
 -- ALTER TABLE ewaste_items RENAME COLUMN photo_url TO image_url;

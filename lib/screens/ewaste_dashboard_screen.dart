@@ -4,6 +4,7 @@ import 'package:ecocycle_1/screens/add_ewaste_screen.dart';
 import 'package:ecocycle_1/screens/view_ewaste_screen.dart';
 import 'package:ecocycle_1/screens/map_screen.dart';
 import 'package:ecocycle_1/screens/rewards_screen.dart';
+import 'package:ecocycle_1/screens/pickup_request_screen.dart';
 
 class EwasteDashboardScreen extends StatelessWidget {
   const EwasteDashboardScreen({super.key});
@@ -137,12 +138,7 @@ class EwasteDashboardScreen extends StatelessWidget {
                   title: tr('request_pickup'),
                   subtitle: tr('request_pickup_desc'),
                   color: Colors.purple,
-                  onTap: () {
-                    // TODO: Implement pickup request screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(tr('coming_soon'))),
-                    );
-                  },
+                  onTap: () => _open(context, const PickupRequestScreen()),
                 ),
                 _dashboardCard(
                   context,
