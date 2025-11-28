@@ -11,14 +11,7 @@ Future<void> main() async {
   await EasyLocalization.ensureInitialized();
 
   // ✅ Proper Supabase initialization with persistent login session
-  await Supabase.initialize(
-    url: AppSupabase.url,
-    anonKey: AppSupabase.anonKey,
-    debug: true,
-    authOptions: const FlutterAuthClientOptions(
-      autoRefreshToken: true, // Keeps the session alive
-    ),
-  );
+  await AppSupabase.init();
 
   runApp(
     EasyLocalization(

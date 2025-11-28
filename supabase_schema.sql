@@ -63,8 +63,8 @@ ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS collected_at TIMESTAMP WITH TI
 ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;
 
 -- Rename columns to match code expectations (optional, or update code instead):
--- ALTER TABLE ewaste_items RENAME COLUMN title TO item_name;
--- ALTER TABLE ewaste_items RENAME COLUMN photo_url TO image_url;
+ALTER TABLE ewaste_items RENAME COLUMN title TO item_name;
+ALTER TABLE ewaste_items RENAME COLUMN photo_url TO image_url;
 
 -- Profiles table for user information (from profile_screen.dart)
 CREATE TABLE IF NOT EXISTS profiles (
