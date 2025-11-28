@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../models/ewaste_item.dart';
 import '../services/ewaste_service.dart';
 
@@ -29,6 +30,11 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
       });
     } catch (e) {
       setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('fetch_error'))),
+        );
+      }
       print('Error fetching: $e');
     }
   }
@@ -70,7 +76,7 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My E-Waste'),
+        title: Text(tr('my_ewaste')),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -82,121 +88,183 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : ewasteItems.isEmpty
-              ? const Center(child: Text('No E-Waste found'))
+              ? Center(child: Text(tr('no_ewaste_found')))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: ewasteItems.length,
                   itemBuilder: (context, index) {
                     final item = ewasteItems[index];
                     return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      elevation: 3,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                item.imageUrl.isNotEmpty
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.network(
-                                          item.imageUrl,
-                                          width: 60,
-                                          height: 60,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      )
-                                    : const Icon(Icons.image_not_supported,
-                                        size: 60),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.itemName,
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        item.description,
-                                        style:
-                                            TextStyle(color: Colors.grey[600]),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                const Icon(Icons.location_on,
-                                    size: 16, color: Colors.grey),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    item.location,
-                                    style: const TextStyle(color: Colors.grey),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: getStatusColor(item.status)
-                                        .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    item.status,
-                                    style: TextStyle(
-                                      color: getStatusColor(item.status),
-                                      fontWeight: FontWeight.bold,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      elevation: 4,
+                      shadowColor: Colors.black.withOpacity(0.1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => _showTrackingDetails(item),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Hero(
+                                    tag: 'item_image_${item.id}',
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: item.imageUrl.isNotEmpty
+                                          ? Image.network(
+                                              item.imageUrl,
+                                              width: 70,
+                                              height: 70,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error,
+                                                      stackTrace) =>
+                                                  Container(
+                                                width: 70,
+                                                height: 70,
+                                                color: Colors.grey[200],
+                                                child: const Icon(
+                                                  Icons.image_not_supported,
+                                                  size: 30,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            )
+                                          : Container(
+                                              width: 70,
+                                              height: 70,
+                                              color: Colors.grey[200],
+                                              child: const Icon(
+                                                Icons.image_not_supported,
+                                                size: 30,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: getDeliveryStatusColor(
-                                            item.deliveryStatus)
-                                        .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.itemName,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          item.description,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  child: Text(
-                                    item.deliveryStatus.toUpperCase(),
-                                    style: TextStyle(
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 18,
+                                    color: Colors.grey[500],
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      item.location,
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: getStatusColor(item.status)
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: getStatusColor(item.status)
+                                            .withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      item.status,
+                                      style: TextStyle(
+                                        color: getStatusColor(item.status),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
                                       color: getDeliveryStatusColor(
-                                          item.deliveryStatus),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                              item.deliveryStatus)
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: getDeliveryStatusColor(
+                                                item.deliveryStatus)
+                                            .withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      item.deliveryStatus.toUpperCase(),
+                                      style: TextStyle(
+                                        color: getDeliveryStatusColor(
+                                            item.deliveryStatus),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const Spacer(),
-                                TextButton.icon(
-                                  onPressed: () => _showTrackingDetails(item),
-                                  icon:
-                                      const Icon(Icons.track_changes, size: 16),
-                                  label: const Text('Track'),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  const Spacer(),
+                                  FilledButton.icon(
+                                    onPressed: () => _showTrackingDetails(item),
+                                    icon: const Icon(Icons.track_changes,
+                                        size: 16),
+                                    label: const Text('Track'),
+                                    style: FilledButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -220,25 +288,25 @@ class TrackingDetailsSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Tracking Details',
+            tr('tracking_details'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
-          Text('Item: ${item.itemName}'),
-          Text('Status: ${item.status}'),
-          Text('Delivery Status: ${item.deliveryStatus}'),
+          Text('${tr('item')}: ${item.itemName}'),
+          Text('${tr('status')}: ${item.status}'),
+          Text('${tr('delivery_status')}: ${item.deliveryStatus}'),
           if (item.pickupScheduledAt != null)
             Text(
-                'Pickup Scheduled: ${item.pickupScheduledAt!.toLocal().toString().split('.')[0]}'),
+                '${tr('pickup_scheduled')}: ${item.pickupScheduledAt!.toLocal().toString().split('.')[0]}'),
           if (item.collectedAt != null)
             Text(
-                'Collected At: ${item.collectedAt!.toLocal().toString().split('.')[0]}'),
+                '${tr('collected_at')}: ${item.collectedAt!.toLocal().toString().split('.')[0]}'),
           if (item.deliveredAt != null)
             Text(
-                'Delivered At: ${item.deliveredAt!.toLocal().toString().split('.')[0]}'),
+                '${tr('delivered_at')}: ${item.deliveredAt!.toLocal().toString().split('.')[0]}'),
           const SizedBox(height: 16),
           if (item.trackingNotes != null && item.trackingNotes!.isNotEmpty) ...[
-            const Text('Tracking Notes:',
+            Text(tr('tracking_notes'),
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ...item.trackingNotes!.map((note) => Padding(

@@ -89,14 +89,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Color getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'approved':
+      case 'pending':
+        return Colors.redAccent;
+      case 'picked':
         return Colors.orange;
       case 'collected':
         return Colors.green;
-      case 'delivered':
+      case 'recycled':
         return Colors.blue;
       default:
-        return Colors.redAccent;
+        return Colors.grey;
     }
   }
 
@@ -191,24 +193,34 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                ElevatedButton(
-                                  onPressed: () => updateStatus(
-                                      item.id.toString(), 'Approved'),
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.orange),
-                                  child: const Text('Approve'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => updateStatus(
-                                      item.id.toString(), 'Collected'),
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green),
-                                  child: const Text('Collected'),
-                                ),
+                                if (item.status == 'Pending')
+                                  ElevatedButton(
+                                    onPressed: () => updateStatus(
+                                        item.id.toString(), 'Picked'),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange),
+                                    child: const Text('Pick'),
+                                  ),
+                                if (item.status == 'Picked')
+                                  ElevatedButton(
+                                    onPressed: () => updateStatus(
+                                        item.id.toString(), 'Collected'),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green),
+                                    child: const Text('Collected'),
+                                  ),
+                                if (item.status == 'Collected')
+                                  ElevatedButton(
+                                    onPressed: () => updateStatus(
+                                        item.id.toString(), 'Recycled'),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue),
+                                    child: const Text('Recycled'),
+                                  ),
                                 ElevatedButton(
                                   onPressed: () => _showAssignmentDialog(item),
                                   style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue),
+                                      backgroundColor: Colors.purple),
                                   child: const Text('Assign'),
                                 ),
                               ],
@@ -260,7 +272,7 @@ class _AssignmentDialogState extends State<AssignmentDialog> {
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: selectedAgentId,
+              initialValue: selectedAgentId,
               hint: const Text('Select pickup agent'),
               items: widget.agents.map((agent) {
                 return DropdownMenuItem(
@@ -274,7 +286,7 @@ class _AssignmentDialogState extends State<AssignmentDialog> {
             const Text('NGO:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: selectedNgoId,
+              initialValue: selectedNgoId,
               hint: const Text('Select NGO'),
               items: widget.ngos.map((ngo) {
                 return DropdownMenuItem(

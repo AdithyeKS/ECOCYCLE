@@ -53,7 +53,11 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     try {
       final imageUrl = await _ewasteService.uploadImage(_imageFile!);
 
+      // Get current user ID from Supabase auth
+      final userId = _ewasteService.supabase.auth.currentUser!.id;
+
       await _ewasteService.insertEwaste(
+        userId: userId,
         categoryId: _selectedCategoryId!,
         itemName: _titleController.text,
         description: _descriptionController.text,
@@ -70,7 +74,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(tr('error_occurred'))),
         );
       }
     } finally {
@@ -193,11 +197,22 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                 child: GestureDetector(
                   onTap: _pickImage,
                   child: Container(
-                    width: 200,
-                    height: 200,
+                    width: 220,
+                    height: 220,
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.grey.withOpacity(0.3),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                       image: _imageFile != null
                           ? DecorationImage(
                               image: FileImage(_imageFile!),
@@ -209,14 +224,47 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                         ? Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.camera_alt,
-                                  size: 48, color: Colors.grey[400]),
-                              const SizedBox(height: 8),
-                              Text(tr('tap_to_take_photo'),
-                                  style: TextStyle(color: Colors.grey[600])),
+                              Icon(
+                                Icons.camera_alt,
+                                size: 56,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.6),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                tr('tap_to_take_photo'),
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.7),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ],
                           )
-                        : null,
+                        : Stack(
+                            children: [
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: IconButton(
+                                  onPressed: () =>
+                                      setState(() => _imageFile = null),
+                                  icon: const Icon(Icons.close),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor:
+                                        Colors.black.withOpacity(0.5),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
               ),

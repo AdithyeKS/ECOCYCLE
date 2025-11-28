@@ -559,10 +559,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       FilledButton(
                                         onPressed: () =>
                                             Navigator.of(ctx).pop(true),
-                                        child: const Text('Sign Out'),
                                         style: FilledButton.styleFrom(
                                           backgroundColor: Colors.red.shade400,
                                         ),
+                                        child: const Text('Sign Out'),
                                       ),
                                     ],
                                   ),

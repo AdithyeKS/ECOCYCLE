@@ -4,6 +4,7 @@ import '../core/supabase_config.dart';
 import '../models/ewaste_item.dart';
 import '../models/ngo.dart';
 import '../models/pickup_agent.dart';
+import 'profile_service.dart';
 
 class EwasteService {
   final SupabaseClient supabase = AppSupabase.client;
@@ -36,22 +37,31 @@ class EwasteService {
   }
 
   Future<void> insertEwaste({
+    required String userId,
     required String categoryId,
     required String itemName,
     required String description,
     required String location,
     required String imageUrl,
   }) async {
+    final rewardPoints = _calculateRewardPoints(categoryId);
+
     await supabase.from('ewaste_items').insert({
+      'user_id': userId,
       'category_id': categoryId,
       'item_name': itemName,
       'description': description,
       'location': location,
       'image_url': imageUrl,
       'status': 'Pending',
-      'reward_points': _calculateRewardPoints(categoryId),
+      'reward_points': rewardPoints,
       'delivery_status': 'pending',
     });
+
+    // Send email confirmation
+    final profileService = ProfileService();
+    await profileService.sendStatusUpdateNotification(
+        userId, itemName, 'Pending - Item submitted for recycling');
   }
 
   Future<List<EwasteItem>> fetchAll() async {
@@ -126,8 +136,19 @@ class EwasteService {
     await supabase.from('ewaste_items').update({
       'assigned_agent_id': agentId,
       'delivery_status': 'assigned',
-      'status': 'Approved',
+      'status': 'Picked', // Changed from 'Approved' to 'Picked'
     }).eq('id', itemId);
+
+    // Send status update notification
+    final item = await supabase
+        .from('ewaste_items')
+        .select('user_id, item_name')
+        .eq('id', itemId)
+        .single();
+
+    final profileService = ProfileService();
+    await profileService.sendStatusUpdateNotification(item['user_id'],
+        item['item_name'], 'Picked - Agent assigned for pickup');
   }
 
   Future<void> assignNgo(int itemId, String ngoId) async {
@@ -158,11 +179,24 @@ class EwasteService {
     final now = DateTime.now();
     await supabase.from('ewaste_items').update({
       'delivery_status': 'delivered',
+      'status': 'Recycled', // Changed from 'Delivered' to 'Recycled'
       'delivered_at': now.toIso8601String(),
     }).eq('id', itemId);
 
     // Add tracking note
-    await _addTrackingNote(itemId, 'Item delivered to NGO', now);
+    await _addTrackingNote(itemId, 'Item delivered to NGO for recycling', now);
+
+    // Credit EcoPoints to user
+    final item = await supabase
+        .from('ewaste_items')
+        .select('user_id, item_name, reward_points')
+        .eq('id', itemId)
+        .single();
+
+    final profileService = ProfileService();
+    await profileService.addEcoPoints(item['user_id'], item['reward_points']);
+    await profileService.sendPointsEarnedNotification(
+        item['user_id'], item['item_name'], item['reward_points']);
   }
 
   Future<void> _addTrackingNote(

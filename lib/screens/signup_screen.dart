@@ -153,8 +153,9 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             obscureText: true,
                             validator: (v) {
-                              if (v == null || v.length < 8)
+                              if (v == null || v.length < 8) {
                                 return 'Min 8 characters';
+                              }
                               if (!RegExp(r'[A-Za-z]').hasMatch(v) ||
                                   !RegExp(r'\d').hasMatch(v)) {
                                 return 'Use letters and numbers';

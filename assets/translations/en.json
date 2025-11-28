@@ -66,5 +66,18 @@
   "redeem": "Redeem",
   "e_waste_hero": "E-Waste Hero",
   "cloth_saver": "Cloth Saver",
-  "eco_champion": "Eco Champion"
+  "eco_champion": "Eco Champion",
+  "my_ewaste": "My E-Waste",
+  "no_ewaste_found": "No E-Waste found",
+  "tracking_details": "Tracking Details",
+  "item": "Item",
+  "status": "Status",
+  "delivery_status": "Delivery Status",
+  "pickup_scheduled": "Pickup Scheduled",
+  "collected_at": "Collected At",
+  "delivered_at": "Delivered At",
+  "recycled": "Recycled",
+  "tracking_notes": "Tracking Notes",
+  "error_occurred": "An error occurred. Please try again.",
+  "fetch_error": "Failed to load data. Please check your connection."
 }

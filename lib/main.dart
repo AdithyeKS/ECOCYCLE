@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ecocycle_1/app_theme.dart';
 import 'package:ecocycle_1/core/supabase_config.dart';
-import 'package:ecocycle_1/screens/home_screen.dart';
 import 'package:ecocycle_1/screens/home_shell.dart';
 import 'package:ecocycle_1/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
