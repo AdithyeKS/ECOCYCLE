@@ -14,7 +14,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _displayName;
   String? _email;
   String? _phoneNumber;
-  int? _age;
+  // int? _age; // REMOVED
   String? _address;
   int _totalPoints = 0;
   bool _loading = true;
@@ -43,7 +43,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final res = await AppSupabase.client
           .from('profiles')
-          .select('full_name, phone_number, age, address, total_points')
+          // MODIFIED: Removed 'age' from the select query
+          .select('full_name, phone_number, address, total_points')
           .eq('id', userId)
           .maybeSingle();
 
@@ -51,18 +52,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // res may be Map<String, dynamic> or dynamic — handle types safely
         final dynamic fullNameVal = res['full_name'];
         final dynamic phoneVal = res['phone_number'];
-        final dynamic ageVal = res['age'];
+        // Removed age-related value fetching
         final dynamic addressVal = res['address'];
         final dynamic pointsVal = res['total_points'];
 
-        int? parsedAge;
-        if (ageVal == null) {
-          parsedAge = null;
-        } else if (ageVal is int) {
-          parsedAge = ageVal;
-        } else {
-          parsedAge = int.tryParse(ageVal.toString());
-        }
+        // Removed age parsing block
 
         int parsedPoints = 0;
         if (pointsVal == null) {
@@ -76,7 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _displayName = fullNameVal?.toString();
           _phoneNumber = phoneVal?.toString();
-          _age = parsedAge;
+          // Removed setting _age
           _address = addressVal?.toString();
           _totalPoints = parsedPoints;
         });
@@ -138,11 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         label = 'Phone Number';
         keyboardType = TextInputType.phone;
         break;
-      case 'age':
-        title = 'Edit Age';
-        label = 'Age';
-        keyboardType = TextInputType.number;
-        break;
+      // REMOVED case 'age':
       case 'address':
         title = 'Edit Address';
         label = 'Address';
@@ -181,29 +171,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (user == null) return;
 
       final Map<String, dynamic> data = {'id': user.id};
-      int? ageParsed;
 
       switch (field) {
         case 'phone':
           data['phone_number'] = val.trim().isEmpty ? null : val.trim();
           break;
-        case 'age':
-          if (val.trim().isEmpty) {
-            data['age'] = null;
-          } else {
-            ageParsed = int.tryParse(val.trim());
-            if (ageParsed == null) {
-              // invalid number; show message
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a valid age')),
-                );
-              }
-              return;
-            }
-            data['age'] = ageParsed;
-          }
-          break;
+        // REMOVED case 'age':
         case 'address':
           data['address'] = val.trim().isEmpty ? null : val.trim();
           break;
@@ -217,9 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           case 'phone':
             _phoneNumber = val.trim().isEmpty ? null : val.trim();
             break;
-          case 'age':
-            _age = val.trim().isEmpty ? null : ageParsed;
-            break;
+          // REMOVED case 'age':
           case 'address':
             _address = val.trim().isEmpty ? null : val.trim();
             break;
@@ -462,12 +433,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             value: _phoneNumber ?? 'Not set',
                             onEdit: () => _editField('phone', _phoneNumber),
                           ),
-                          _profileField(
-                            icon: Icons.calendar_today_outlined,
-                            label: 'Age',
-                            value: _age?.toString() ?? 'Not set',
-                            onEdit: () => _editField('age', _age?.toString()),
-                          ),
+                          // The 'Age' field has been removed.
                           _profileField(
                             icon: Icons.location_on_outlined,
                             label: 'Address',

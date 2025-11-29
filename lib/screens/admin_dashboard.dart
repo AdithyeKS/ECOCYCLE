@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ewaste_item.dart';
 import '../models/ngo.dart';
 import '../models/pickup_agent.dart';

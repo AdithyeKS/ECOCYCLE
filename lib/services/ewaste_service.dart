@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data'; 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_config.dart';
 import '../models/ewaste_item.dart';
@@ -10,10 +10,11 @@ class EwasteService {
   final SupabaseClient supabase = AppSupabase.client;
   static const bucket = 'ewaste_images';
 
-  int _calculateRewardPoints(String categoryId) {
-    // Base points for all e-waste items
-    const basePoints = 50;
-
+  // FIX: Renamed from private '_calculateRewardPoints' to public 'calculatePointsForCategory'
+  // This resolves the error in lib/screens/add_ewaste_screen.dart
+  int calculatePointsForCategory(String categoryId) {
+    const basePoints = 50; 
+    
     // Additional points based on category
     final categoryBonus = switch (categoryId) {
       'tv' => 100, // TVs & Monitors (larger items)
@@ -28,13 +29,25 @@ class EwasteService {
 
     return basePoints + categoryBonus;
   }
-
-  Future<String> uploadImage(File file) async {
+  
+  Future<String> uploadImage(Uint8List fileBytes, String mimeType) async {
     final filename = 'ew_${DateTime.now().millisecondsSinceEpoch}.png';
-    final path = 'uploads/$filename';
-    await supabase.storage.from(bucket).upload(path, file);
+    final path = 'uploads/$filename'; 
+    
+    // Upload the bytes directly
+    await supabase.storage.from(bucket).uploadBinary(
+      path, 
+      fileBytes,
+      fileOptions: FileOptions(
+        contentType: mimeType, 
+        cacheControl: '3600',
+      ),
+    );
+    
+    // Get the public URL for display and database storage
     return supabase.storage.from(bucket).getPublicUrl(path);
   }
+
 
   Future<void> insertEwaste({
     required String userId,
@@ -44,15 +57,16 @@ class EwasteService {
     required String location,
     required String imageUrl,
   }) async {
-    final rewardPoints = _calculateRewardPoints(categoryId);
+    final rewardPoints = calculatePointsForCategory(categoryId); // Using public method
 
+    // CRUCIAL: This database insert logic is fine and will work if the upload succeeds.
     await supabase.from('ewaste_items').insert({
       'user_id': userId,
       'category_id': categoryId,
       'item_name': itemName,
       'description': description,
       'location': location,
-      'image_url': imageUrl,
+      'photo_url': imageUrl,
       'status': 'Pending',
       'reward_points': rewardPoints,
       'delivery_status': 'pending',
@@ -63,7 +77,7 @@ class EwasteService {
     await profileService.sendStatusUpdateNotification(
         userId, itemName, 'Pending - Item submitted for recycling');
   }
-
+  
   Future<List<EwasteItem>> fetchAll() async {
     final data = await supabase
         .from('ewaste_items')
@@ -91,7 +105,7 @@ class EwasteService {
     final data = await supabase
         .from('ngos')
         .select()
-        .eq('is_government_approved', true)
+        // Removed eq('is_government_approved', true) to show all NGOs for drop-off
         .order('created_at', ascending: false);
     return (data as List).map((e) => Ngo.fromJson(e)).toList();
   }
@@ -222,11 +236,16 @@ class EwasteService {
 
   // Get items assigned to a specific agent
   Future<List<EwasteItem>> fetchItemsForAgent(String agentId) async {
-    final data = await supabase
-        .from('ewaste_items')
-        .select()
-        .eq('assigned_agent_id', agentId)
-        .order('pickup_scheduled_at', ascending: true);
-    return (data as List).map((e) => EwasteItem.fromJson(e)).toList();
+    try {
+      final data = await supabase
+          .from('ewaste_items')
+          .select()
+          .eq('assigned_agent_id', agentId)
+          .order('pickup_scheduled_at', ascending: true);
+      return (data as List).map((e) => EwasteItem.fromJson(e)).toList();
+    } catch (e) {
+      print('Error fetching items for agent: $e');
+      return []; // Return an empty list on failure
+    }
   }
 }

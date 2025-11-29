@@ -5,6 +5,7 @@ version: 1.0.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
+
 dependencies:
   flutter:
     sdk: flutter
@@ -18,8 +19,14 @@ dependencies:
   intl: ^0.20.2
   image_picker: ^1.2.0
   url_launcher: ^6.1.10
+  
+  # === ADDED FOR AI/API INTEGRATION ===
+  http: ^1.2.1 # Required for making POST request to Gemini API
+  mime: ^1.0.5 # Required for determining image MIME type
+  # ====================================
 
-  path: any
+  path: ^1.8.3 # Corrected version requirement for path
+
 dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:

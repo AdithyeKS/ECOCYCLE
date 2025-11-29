@@ -22,6 +22,29 @@ class ProfileService {
         .update({'total_points': newPoints}).eq('id', userId);
   }
 
+  /// NEW FUNCTION: Deduct EcoPoints from user profile
+  Future<void> deductEcoPoints(String userId, int points) async {
+    // Get current points
+    final currentProfile = await supabase
+        .from('profiles')
+        .select('total_points')
+        .eq('id', userId)
+        .single();
+
+    final currentPoints = currentProfile['total_points'] as int? ?? 0;
+    
+    if (currentPoints < points) {
+      throw Exception('Insufficient EcoPoints to claim this reward.');
+    }
+    
+    final newPoints = currentPoints - points;
+
+    // Update profile
+    await supabase
+        .from('profiles')
+        .update({'total_points': newPoints}).eq('id', userId);
+  }
+
   /// Send email notification (placeholder - would integrate with email service)
   Future<void> sendEmailNotification(
       String userId, String subject, String message) async {

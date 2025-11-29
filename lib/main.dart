@@ -3,6 +3,7 @@ import 'package:ecocycle_1/app_theme.dart';
 import 'package:ecocycle_1/core/supabase_config.dart';
 import 'package:ecocycle_1/screens/home_shell.dart';
 import 'package:ecocycle_1/screens/login_screen.dart';
+import 'package:ecocycle_1/screens/update_password_screen.dart'; 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -46,21 +47,64 @@ class _EcoCycleAppState extends State<EcoCycleApp> {
 
   @override
   Widget build(BuildContext context) {
-    final session = Supabase.instance.client.auth.currentSession;
+    // 🔄 Use StreamBuilder to listen for real-time auth state changes (like deep links)
+    return StreamBuilder<AuthState>(
+      stream: AppSupabase.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
 
-    return MaterialApp(
-      title: tr('app_title'),
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: _themeMode,
-      localizationsDelegates: context.localizationDelegates,
-      supportedLocales: context.supportedLocales,
-      locale: context.locale,
-      // ✅ Automatically show login or home based on saved Supabase session
-      home: session == null
-          ? LoginScreen(onThemeToggle: _toggleTheme)
-          : HomeShell(toggleTheme: _toggleTheme),
+        // FIX: Show a loading indicator until the initial authentication state is resolved.
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          // Return a minimal MaterialApp with a loading screen while Supabase checks the session.
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              backgroundColor: Colors.green[700],
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Uses the app logo from the assets
+                    Image.asset('assets/images/ecocycle.png', width: 150),
+                    const SizedBox(height: 20),
+                    const CircularProgressIndicator(color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final session = snapshot.data?.session;
+        final event = snapshot.data?.event;
+
+        Widget initialHome;
+
+        // 1. Check if the event is a password recovery deep link
+        if (event == AuthChangeEvent.passwordRecovery) {
+          initialHome = const UpdatePasswordScreen();
+        }
+        // 2. Check for an active session
+        else if (session != null) {
+          initialHome = HomeShell(toggleTheme: _toggleTheme);
+        }
+        // 3. Default to login
+        else {
+          initialHome = LoginScreen(onThemeToggle: _toggleTheme);
+        }
+
+        return MaterialApp(
+          title: tr('app_title'),
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: _themeMode,
+          localizationsDelegates: context.localizationDelegates,
+          supportedLocales: context.supportedLocales,
+          locale: context.locale,
+          // Use the determined home screen
+          home: initialHome,
+        );
+      },
     );
   }
 }

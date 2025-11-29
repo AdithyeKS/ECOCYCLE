@@ -12,56 +12,57 @@ class EwasteDashboardScreen extends StatelessWidget {
   void _open(BuildContext context, Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
-
-  Widget _dashboardCard(BuildContext context,
-      {required IconData icon,
-      required String title,
-      required String subtitle,
-      required VoidCallback onTap,
-      Color color = Colors.green}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).shadowColor.withOpacity(0.1),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: color.withOpacity(0.12),
-              child: Icon(icon, size: 32, color: color),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+  
+  // NEW PROFESSIONAL TILE WIDGET
+  Widget _actionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color color = Colors.green,
+  }) {
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: color.withOpacity(0.15),
+                child: Icon(icon, size: 28, color: color),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 14,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );
@@ -71,7 +72,8 @@ class EwasteDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(tr('ewaste_dashboard')),
+        // Using hardcoded string for professional consistency
+        title: const Text('E-Waste Recycling Hub'),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -85,70 +87,77 @@ class EwasteDashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Prominent Welcome/Description Header
             Text(
-              tr('ewaste_welcome'),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              'Welcome to the E-Waste Hub',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
             ),
             const SizedBox(height: 8),
-            Text(
-              tr('ewaste_description'),
+            const Text(
+              'Contribute, track, and get rewarded for your electronics recycling efforts.',
               style: TextStyle(
-                color: Colors.grey.shade600,
+                color: Colors.grey,
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 32),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              children: [
-                _dashboardCard(
-                  context,
-                  icon: Icons.add_circle_outline,
-                  title: tr('add_ewaste'),
-                  subtitle: tr('add_ewaste_desc'),
-                  color: Colors.blue,
-                  onTap: () => _open(context, const AddEwasteScreen()),
-                ),
-                _dashboardCard(
-                  context,
-                  icon: Icons.list_alt,
-                  title: tr('view_ewaste'),
-                  subtitle: tr('view_ewaste_desc'),
-                  color: Colors.orange,
-                  onTap: () => _open(context, const ViewEwasteScreen()),
-                ),
-                _dashboardCard(
-                  context,
-                  icon: Icons.location_on,
-                  title: tr('locate_centers'),
-                  subtitle: tr('locate_centers_desc'),
-                  color: Colors.green,
-                  onTap: () => _open(context, const MapScreen()),
-                ),
-                _dashboardCard(
-                  context,
-                  icon: Icons.local_shipping,
-                  title: tr('request_pickup'),
-                  subtitle: tr('request_pickup_desc'),
-                  color: Colors.purple,
-                  onTap: () => _open(context, const PickupRequestScreen()),
-                ),
-                _dashboardCard(
-                  context,
-                  icon: Icons.school,
-                  title: tr('learn_earn'),
-                  subtitle: tr('learn_earn_desc'),
-                  color: Colors.teal,
-                  onTap: () => _open(context, const RewardsScreen()),
-                ),
-              ],
+            const SizedBox(height: 24),
+
+            // Main Action Tiles
+            _actionTile(
+              context,
+              icon: Icons.add_circle_outline,
+              title: tr('Add New E-Waste Item'),
+              subtitle: 'Register your electronics for recycling pickup.',
+              color: Colors.blue,
+              onTap: () => _open(context, const AddEwasteScreen()),
+            ),
+            _actionTile(
+              context,
+              icon: Icons.local_shipping,
+              title: tr('Schedule Pickup'),
+              subtitle: 'Request and confirm a date/time for item collection.',
+              color: Colors.purple,
+              onTap: () => _open(context, const PickupRequestScreen()),
+            ),
+            _actionTile(
+              context,
+              icon: Icons.track_changes,
+              title: tr('View & Track My Items'),
+              subtitle: 'Monitor the status of all your submitted e-waste.',
+              color: Colors.orange,
+              onTap: () => _open(context, const ViewEwasteScreen()),
+            ),
+            
+            const SizedBox(height: 24),
+
+            // Resource Section Header
+            Text(
+              'Resources & Rewards',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const Divider(height: 20, thickness: 1),
+
+            // Resource Tiles
+            _actionTile(
+              context,
+              icon: Icons.map_outlined,
+              title: tr('Locate Drop-off Centers'),
+              subtitle: 'Find the nearest NGO or collection point on the map.',
+              color: Colors.green,
+              onTap: () => _open(context, const MapScreen()),
+            ),
+            _actionTile(
+              context,
+              icon: Icons.emoji_events,
+              title: tr('My Eco-Points & Rewards'),
+              subtitle: 'View your earned points and available rewards.',
+              color: Colors.teal,
+              onTap: () => _open(context, const RewardsScreen()),
             ),
           ],
         ),
