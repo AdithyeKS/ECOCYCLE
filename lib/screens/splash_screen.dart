@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ecocycle_1/screens/login_screen.dart';
+import 'package:EcoCycle/screens/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   final Function(bool)? toggleTheme; // optional

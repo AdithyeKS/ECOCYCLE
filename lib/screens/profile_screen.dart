@@ -1,7 +1,7 @@
 // lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
-import 'package:ecocycle_1/core/supabase_config.dart';
-import 'package:ecocycle_1/screens/login_screen.dart';
+import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:EcoCycle/screens/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

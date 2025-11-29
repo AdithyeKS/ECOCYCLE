@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:ecocycle_1/screens/ewaste_dashboard_screen.dart';
-import 'package:ecocycle_1/screens/cloth_dashboard_screen.dart';
-import 'package:ecocycle_1/screens/profile_screen.dart';
+import 'package:EcoCycle/screens/ewaste_dashboard_screen.dart';
+import 'package:EcoCycle/screens/cloth_dashboard_screen.dart';
+import 'package:EcoCycle/screens/profile_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final VoidCallback toggleTheme;

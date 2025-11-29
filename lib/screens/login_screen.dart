@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ecocycle_1/core/supabase_config.dart';
-import 'package:ecocycle_1/screens/forgot_password_screen.dart';
-import 'package:ecocycle_1/screens/home_shell.dart';
-import 'package:ecocycle_1/screens/signup_screen.dart';
+import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:EcoCycle/screens/forgot_password_screen.dart';
+import 'package:EcoCycle/screens/home_shell.dart';
+import 'package:EcoCycle/screens/signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback? onThemeToggle;
@@ -21,9 +21,10 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
 
   // Regex for general email validation
-  static final _emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+  static final _emailRegex =
+      RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
   // Regex for minimum 8 characters (required for login)
-  static final _minPasswordRegex = RegExp(r'^.{8,}$'); 
+  static final _minPasswordRegex = RegExp(r'^.{8,}$');
 
   Future<void> _login() async {
     if (!_form.currentState!.validate()) return;
@@ -52,16 +53,18 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Custom Input Decoration for the sleek look
-  InputDecoration _customInputDecoration({
-    required String labelText, 
-    required IconData prefixIcon, 
-    Widget? suffixIcon
-  }) {
+  InputDecoration _customInputDecoration(
+      {required String labelText,
+      required IconData prefixIcon,
+      Widget? suffixIcon}) {
     return InputDecoration(
       labelText: labelText,
-      prefixIcon: Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
+      prefixIcon:
+          Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context).cardColor.withOpacity(0.8), // Slightly transparent background
+      fillColor: Theme.of(context)
+          .cardColor
+          .withOpacity(0.8), // Slightly transparent background
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -69,11 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        borderSide:
+            BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+        borderSide:
+            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
     );
   }
@@ -100,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          
+
           // 2. Thematic Elements Layer (Simulated E-Waste/Recycling Blobs)
           // Top Left: Blue blob (suggesting screens/plastic)
           Positioned(
@@ -110,9 +115,11 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15), 
+                color: Colors.blue.withOpacity(0.15),
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)],
+                boxShadow: [
+                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
+                ],
               ),
             ),
           ),
@@ -124,9 +131,13 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1), 
+                color: Colors.yellow.shade700.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
-                boxShadow: [BoxShadow(color: Colors.yellow.shade700.withOpacity(0.2), blurRadius: 30)],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.yellow.shade700.withOpacity(0.2),
+                      blurRadius: 30)
+                ],
               ),
             ),
           ),
@@ -144,7 +155,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-
           // 3. Main Content Layer (Centered Card)
           Center(
             child: SingleChildScrollView(
@@ -155,7 +165,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   elevation: 20, // High elevation for the floating effect
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
-                  color: theme.cardColor.withOpacity(0.95), // Semi-transparent card
+                  color: theme.cardColor
+                      .withOpacity(0.95), // Semi-transparent card
                   child: Padding(
                     padding: const EdgeInsets.all(30),
                     child: Form(
@@ -174,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Text('Welcome Back',
                                     style: theme.textTheme.headlineMedium
                                         ?.copyWith(
-                                            fontWeight: FontWeight.bold, 
+                                            fontWeight: FontWeight.bold,
                                             color: theme.colorScheme.primary)),
                                 const SizedBox(height: 8),
                                 Text('Sign in to continue your eco-journey',
@@ -191,13 +202,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 labelText: 'Email',
                                 prefixIcon: Icons.email_outlined),
                             validator: (v) {
-                                if (v == null || v.isEmpty) {
-                                  return 'Email is required';
-                                }
-                                if (!_emailRegex.hasMatch(v.trim())) {
-                                  return 'Enter a valid email format';
-                                }
-                                return null;
+                              if (v == null || v.isEmpty) {
+                                return 'Email is required';
+                              }
+                              if (!_emailRegex.hasMatch(v.trim())) {
+                                return 'Enter a valid email format';
+                              }
+                              return null;
                             },
                             keyboardType: TextInputType.emailAddress,
                           ),
@@ -221,10 +232,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             obscureText: _obscurePassword,
-                            validator: (v) => 
+                            validator: (v) =>
                                 (v == null || !_minPasswordRegex.hasMatch(v))
-                                ? 'Minimum 8 characters required'
-                                : null,
+                                    ? 'Minimum 8 characters required'
+                                    : null,
                           ),
                           const SizedBox(height: 8),
 
@@ -261,20 +272,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           FilledButton(
                             onPressed: _busy ? null : _login,
                             style: FilledButton.styleFrom(
-                                backgroundColor: theme.colorScheme.primary, // Themed Color
+                                backgroundColor:
+                                    theme.colorScheme.primary, // Themed Color
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12))),
                             child: _busy
                                 ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white))
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
                                 : const Text('Login',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
                           ),
 
                           const SizedBox(height: 16),
@@ -285,14 +298,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 : () => Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                        builder: (_) => SignupScreen(onThemeToggle: widget.onThemeToggle))),
+                                        builder: (_) => SignupScreen(
+                                            onThemeToggle:
+                                                widget.onThemeToggle))),
                             style: OutlinedButton.styleFrom(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 16),
-                                side: BorderSide(color: theme.colorScheme.primary),
+                                side: BorderSide(
+                                    color: theme.colorScheme.primary),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12))),
-                            child: Text('Create account', style: TextStyle(color: theme.colorScheme.primary, fontSize: 16)),
+                            child: Text('Create account',
+                                style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontSize: 16)),
                           ),
                         ],
                       ),

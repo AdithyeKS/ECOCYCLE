@@ -31,6 +31,8 @@ class _MapScreenState extends State<MapScreen> {
   LatLng _center = const LatLng(9.9312, 76.2673); // Kochi default
   LatLng? _me;
   final _controller = MapController();
+  // Use const distance object for efficiency
+  final Distance _distance = const Distance();
 
   // Hardcoded centers (replace with API or DB later)
   final List<MapCenter> _centers = [
@@ -71,43 +73,64 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _locate();
   }
-
+  
+  // FIX: Refactored _locate() function for robust permission and service checks
   Future<void> _locate() async {
+    // 1. Check if location services (GPS) are enabled on the device.
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) {
-      // show a message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Location services are disabled. Please enable them in settings.')));
-      }
-      return;
-    }
-    var perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) {
-      perm = await Geolocator.requestPermission();
-    }
-    if (perm == LocationPermission.deniedForever ||
-        perm == LocationPermission.denied) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Location permission denied. Please grant permission in app settings.')));
+        // The exact error message you reported! Use an alert to guide the user.
+        _showAlertDialog(
+          title: 'Location Services Disabled',
+          content: 'The device location services (GPS) are currently disabled. Please enable them in your phone settings to show your current position.',
+        );
       }
       return;
     }
 
+    // 2. Check for app permissions.
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      // Request permission if initially denied.
+      permission = await Geolocator.requestPermission();
+    }
+    
+    // 3. Handle denial states.
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+         _showAlertDialog(
+          title: 'Permission Permanently Denied',
+          content: 'Location permission has been permanently denied. You must grant access in the app settings.',
+        );
+      }
+      return;
+    }
+    if (permission == LocationPermission.denied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Location permission denied. Cannot locate you.')));
+      }
+      return;
+    }
+
+    // 4. Get position and update map.
     try {
       final p = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
       final me = LatLng(p.latitude, p.longitude);
-      setState(() {
-        _me = me;
-        _center = me;
-      });
+      
+      if (mounted) {
+        setState(() {
+          _me = me;
+          _center = me;
+        });
+      }
+      
       _controller.move(_center, 15);
       _computeNearest();
-      // automatically show nearest list for convenience
+      
+      // Automatically show nearest list for convenience after locating
       if (mounted) {
         Future.delayed(
             const Duration(milliseconds: 400), () => _showNearestSheet());
@@ -115,18 +138,43 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error getting location: $e')));
+            SnackBar(content: Text('Error getting location: ${e.toString().contains('Timeout') ? 'Location request timed out or failed to get position.' : e.toString()}')));
       }
     }
   }
 
+  // Helper function to show alerts (replacing snackbars for critical messages)
+  void _showAlertDialog({required String title, required String content}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+          // Optionally guide user to settings if permission/service is denied/disabled
+          if (title.contains('Disabled') || title.contains('Permanently Denied'))
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Geolocator.openLocationSettings();
+              },
+              child: const Text('Go to Settings'),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _computeNearest() {
     if (_me == null) return;
-    final Distance dist = Distance();
     final List<MapCenter> sorted = List.from(_centers);
     sorted.sort((a, b) {
-      final da = dist.distance(_me!, LatLng(a.lat, a.lon));
-      final db = dist.distance(_me!, LatLng(b.lat, b.lon));
+      final da = _distance.distance(_me!, LatLng(a.lat, a.lon));
+      final db = _distance.distance(_me!, LatLng(b.lat, b.lon));
       return da.compareTo(db);
     });
     setState(() {
@@ -165,7 +213,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
             ..._nearest.map((c) {
-              final dist = Distance().distance(_me!, LatLng(c.lat, c.lon));
+              final dist = _distance.distance(_me!, LatLng(c.lat, c.lon));
               final km = (dist / 1000).toStringAsFixed(2);
               return ListTile(
                 leading: Icon(c.type.toLowerCase().contains('gov')
@@ -239,13 +287,14 @@ class _MapScreenState extends State<MapScreen> {
               ),
             );
           },
+          // FIX: Use Theme colors for better light/dark mode compatibility
           child: Icon(
               c.type.toLowerCase().contains('gov')
                   ? Icons.location_city
                   : Icons.volunteer_activism,
               color: c.type.toLowerCase().contains('gov')
-                  ? Colors.blue
-                  : Colors.green,
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.green.shade700,
               size: 30),
         ),
       ));
@@ -256,13 +305,21 @@ class _MapScreenState extends State<MapScreen> {
         point: _me!,
         width: 56,
         height: 56,
-        child: const Icon(Icons.my_location, size: 40, color: Colors.red),
+        // FIX: Use theme primary color, not hardcoded red, for location
+        child: Icon(Icons.my_location, size: 40, color: Theme.of(context).colorScheme.secondary),
       ));
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Eco Map (OpenStreetMap)'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+            ),
+          ),
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.my_location), onPressed: _locate),
           IconButton(

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ecocycle_1/core/supabase_config.dart';
+import 'package:EcoCycle/core/supabase_config.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -14,9 +14,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _email = TextEditingController();
   bool _busy = false;
   String? _msg;
-  
+
   // Regex for general email validation
-  static final _emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+  static final _emailRegex =
+      RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
   Future<void> _sendReset() async {
     // ADD: Validation check before proceeding
@@ -39,16 +40,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   // Custom Input Decoration for the sleek look
-  InputDecoration _customInputDecoration({
-    required String labelText, 
-    required IconData prefixIcon, 
-    Widget? suffixIcon
-  }) {
+  InputDecoration _customInputDecoration(
+      {required String labelText,
+      required IconData prefixIcon,
+      Widget? suffixIcon}) {
     return InputDecoration(
       labelText: labelText,
-      prefixIcon: Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
+      prefixIcon:
+          Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context).cardColor.withOpacity(0.8), // Slightly transparent background
+      fillColor: Theme.of(context)
+          .cardColor
+          .withOpacity(0.8), // Slightly transparent background
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -56,11 +59,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        borderSide:
+            BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+        borderSide:
+            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
     );
   }
@@ -86,7 +91,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
             ),
           ),
-          
+
           // 2. Thematic Elements Layer (Simulated E-Waste/Recycling Blobs)
           Positioned(
             top: -50,
@@ -95,9 +100,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15), 
+                color: Colors.blue.withOpacity(0.15),
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)],
+                boxShadow: [
+                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
+                ],
               ),
             ),
           ),
@@ -108,9 +115,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1), 
+                color: Colors.yellow.shade700.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
-                boxShadow: [BoxShadow(color: Colors.yellow.shade700.withOpacity(0.2), blurRadius: 30)],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.yellow.shade700.withOpacity(0.2),
+                      blurRadius: 30)
+                ],
               ),
             ),
           ),
@@ -127,7 +138,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
 
-
           // 3. Main Content Layer (Centered Card)
           Center(
             child: SingleChildScrollView(
@@ -135,10 +145,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Card(
-                  elevation: 20, 
+                  elevation: 20,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
-                  color: theme.cardColor.withOpacity(0.95), 
+                  color: theme.cardColor.withOpacity(0.95),
                   child: Padding(
                     padding: const EdgeInsets.all(30),
                     // WRAP: Wrap content in a Form widget
@@ -156,9 +166,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 const SizedBox(height: 16),
                                 Text('Forgot Password',
                                     style: theme.textTheme.headlineMedium
-                                        ?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.colorScheme.primary)),
                                 const SizedBox(height: 8),
-                                Text('Enter your email to receive a reset link.',
+                                Text(
+                                    'Enter your email to receive a reset link.',
                                     style: theme.textTheme.bodyMedium),
                                 const SizedBox(height: 24),
                               ],
@@ -166,7 +179,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ),
 
                           // Email
-                          TextFormField( 
+                          TextFormField(
                             controller: _email,
                             decoration: _customInputDecoration(
                                 labelText: 'Email',
@@ -174,13 +187,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             keyboardType: TextInputType.emailAddress,
                             // ADD: Validator for required email format
                             validator: (v) {
-                                if (v == null || v.isEmpty) {
-                                  return 'Email is required';
-                                }
-                                if (!_emailRegex.hasMatch(v.trim())) {
-                                  return 'Enter a valid email format';
-                                }
-                                return null;
+                              if (v == null || v.isEmpty) {
+                                return 'Email is required';
+                              }
+                              if (!_emailRegex.hasMatch(v.trim())) {
+                                return 'Enter a valid email format';
+                              }
+                              return null;
                             },
                           ),
                           const SizedBox(height: 16),
@@ -199,30 +212,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           FilledButton(
                             onPressed: _busy ? null : _sendReset,
                             style: FilledButton.styleFrom(
-                                backgroundColor: Colors.red.shade400, // Using red for danger/reset
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: Colors
+                                    .red.shade400, // Using red for danger/reset
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12))),
                             child: _busy
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child:
-                                        CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
                                 : const Text('Send Reset Link',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
                           ),
 
                           const SizedBox(height: 16),
                           OutlinedButton(
                             onPressed: () => Navigator.of(context).pop(),
                             style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                side: BorderSide(color: theme.colorScheme.primary),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                side: BorderSide(
+                                    color: theme.colorScheme.primary),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12))),
-                            child: Text('Back to Login', style: TextStyle(color: theme.colorScheme.primary, fontSize: 16)),
+                            child: Text('Back to Login',
+                                style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontSize: 16)),
                           ),
                         ],
                       ),

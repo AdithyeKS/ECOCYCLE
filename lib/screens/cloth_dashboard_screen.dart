@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'add_cloth_screen.dart'; 
+import 'package:EcoCycle/screens/add_cloth_screen.dart';
 
 class ClothDashboardScreen extends StatelessWidget {
   const ClothDashboardScreen({super.key});
@@ -8,7 +8,7 @@ class ClothDashboardScreen extends StatelessWidget {
   void _open(BuildContext context, Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
-  
+
   // NEW PROFESSIONAL TILE WIDGET (adopted from E-Waste dashboard)
   Widget _actionTile(
     BuildContext context, {
@@ -100,21 +100,22 @@ class ClothDashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            
+
             // --- Essential Action Tiles (New Design) ---
-            
+
             // 1. Donate/Add New Item (Most important action)
             _actionTile(
               context,
               icon: Icons.add_circle_outline,
               title: tr('donate_clothes'),
-              subtitle: 'Upload a photo, assess condition, and submit for donation.',
+              subtitle:
+                  'Upload a photo, assess condition, and submit for donation.',
               color: Colors.indigo,
               onTap: () {
                 _open(context, const AddClothScreen());
               },
             ),
-            
+
             // 2. View Donations / Tracking
             _actionTile(
               context,
@@ -129,7 +130,7 @@ class ClothDashboardScreen extends StatelessWidget {
                 );
               },
             ),
-            
+
             // 3. Schedule Pickup
             _actionTile(
               context,
@@ -144,9 +145,9 @@ class ClothDashboardScreen extends StatelessWidget {
                 );
               },
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // --- Secondary Resources (Combined into one section) ---
             Text(
               'Resources',
@@ -169,11 +170,12 @@ class ClothDashboardScreen extends StatelessWidget {
                 );
               },
             ),
-             _actionTile(
+            _actionTile(
               context,
               icon: Icons.school,
               title: tr('cloth_tips'),
-              subtitle: 'Learn about textile recycling and sustainable fashion.',
+              subtitle:
+                  'Learn about textile recycling and sustainable fashion.',
               color: Colors.teal,
               onTap: () {
                 // TODO: Implement cloth recycling tips

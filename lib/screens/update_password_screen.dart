@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:ecocycle_1/core/supabase_config.dart';
-import 'package:ecocycle_1/screens/login_screen.dart';
+import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:EcoCycle/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import for UserAttributes
 
 class UpdatePasswordScreen extends StatefulWidget {
@@ -104,18 +104,20 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
   bool _checkPasswordRequirement(String value, RegExp pattern) {
     return pattern.hasMatch(value);
   }
-  
+
   // Custom Input Decoration for the sleek look (Copied from login_screen.dart)
-  InputDecoration _customInputDecoration({
-    required String labelText, 
-    required IconData prefixIcon, 
-    Widget? suffixIcon
-  }) {
+  InputDecoration _customInputDecoration(
+      {required String labelText,
+      required IconData prefixIcon,
+      Widget? suffixIcon}) {
     return InputDecoration(
       labelText: labelText,
-      prefixIcon: Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
+      prefixIcon:
+          Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context).cardColor.withOpacity(0.8), // Slightly transparent background
+      fillColor: Theme.of(context)
+          .cardColor
+          .withOpacity(0.8), // Slightly transparent background
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -123,15 +125,16 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        borderSide:
+            BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+        borderSide:
+            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -140,10 +143,13 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
 
     // Individual checks for real-time feedback
     final hasMinLength = passwordText.length >= 8;
-    final hasUppercase = _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
-    final hasLowercase = _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
+    final hasUppercase =
+        _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
+    final hasLowercase =
+        _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
     final hasNumber = _checkPasswordRequirement(passwordText, RegExp(r'\d'));
-    final hasSpecialChar = _checkPasswordRequirement(passwordText, RegExp(r'[!@#$%^&*()_+={}|:;<>,.?/~]'));
+    final hasSpecialChar = _checkPasswordRequirement(
+        passwordText, RegExp(r'[!@#$%^&*()_+={}|:;<>,.?/~]'));
 
     return Scaffold(
       body: Stack(
@@ -162,7 +168,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
               ),
             ),
           ),
-          
+
           // 2. Thematic Elements Layer (Simulated E-Waste/Recycling Blobs)
           Positioned(
             top: -50,
@@ -171,9 +177,11 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15), 
+                color: Colors.blue.withOpacity(0.15),
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)],
+                boxShadow: [
+                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
+                ],
               ),
             ),
           ),
@@ -184,9 +192,13 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1), 
+                color: Colors.yellow.shade700.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
-                boxShadow: [BoxShadow(color: Colors.yellow.shade700.withOpacity(0.2), blurRadius: 30)],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.yellow.shade700.withOpacity(0.2),
+                      blurRadius: 30)
+                ],
               ),
             ),
           ),
@@ -230,9 +242,12 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                                 const SizedBox(height: 16),
                                 Text('Set New Password',
                                     style: theme.textTheme.headlineMedium
-                                        ?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.colorScheme.primary)),
                                 const SizedBox(height: 8),
-                                Text('Please enter and confirm your new password.',
+                                Text(
+                                    'Please enter and confirm your new password.',
                                     style: theme.textTheme.bodyMedium),
                                 const SizedBox(height: 24),
                               ],
@@ -242,18 +257,19 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                           // New Password Field
                           TextFormField(
                             controller: _passwordController,
-                            onChanged: (value) => setState(() {}), // Trigger rebuild for strength indicator
+                            onChanged: (value) => setState(
+                                () {}), // Trigger rebuild for strength indicator
                             decoration: _customInputDecoration(
                               labelText: 'New Password',
                               prefixIcon: Icons.lock_outline,
                               suffixIcon: IconButton(
-                                onPressed: () =>
-                                    setState(() => _obscurePassword = !_obscurePassword),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                      color: theme.colorScheme.primary,
+                                  color: theme.colorScheme.primary,
                                 ),
                               ),
                             ),
@@ -268,7 +284,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                               return null;
                             },
                           ),
-                          
+
                           // Password Requirements List
                           const SizedBox(height: 8),
                           if (passwordText.isNotEmpty)
@@ -277,12 +293,24 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Password requirements:', style: TextStyle(color: theme.hintColor, fontSize: 13, fontWeight: FontWeight.w500)),
-                                  _buildPasswordRequirement('Minimum 8 characters', hasMinLength),
-                                  _buildPasswordRequirement('At least one uppercase letter (A-Z)', hasUppercase),
-                                  _buildPasswordRequirement('At least one lowercase letter (a-z)', hasLowercase),
-                                  _buildPasswordRequirement('At least one number (0-9)', hasNumber),
-                                  _buildPasswordRequirement('At least one special symbol', hasSpecialChar),
+                                  Text('Password requirements:',
+                                      style: TextStyle(
+                                          color: theme.hintColor,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500)),
+                                  _buildPasswordRequirement(
+                                      'Minimum 8 characters', hasMinLength),
+                                  _buildPasswordRequirement(
+                                      'At least one uppercase letter (A-Z)',
+                                      hasUppercase),
+                                  _buildPasswordRequirement(
+                                      'At least one lowercase letter (a-z)',
+                                      hasLowercase),
+                                  _buildPasswordRequirement(
+                                      'At least one number (0-9)', hasNumber),
+                                  _buildPasswordRequirement(
+                                      'At least one special symbol',
+                                      hasSpecialChar),
                                 ],
                               ),
                             ),
@@ -297,13 +325,14 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                               labelText: tr('confirm_password'),
                               prefixIcon: Icons.lock_reset,
                               suffixIcon: IconButton(
-                                onPressed: () => setState(
-                                    () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                onPressed: () => setState(() =>
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword),
                                 icon: Icon(
                                   _obscureConfirmPassword
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                      color: theme.colorScheme.primary,
+                                  color: theme.colorScheme.primary,
                                 ),
                               ),
                             ),

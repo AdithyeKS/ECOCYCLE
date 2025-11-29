@@ -1,4 +1,4 @@
-name: ecocycle_1
+name: EcoCycle
 description: EcoCycle – Smart waste & cloth recycling (Supabase + OSM)
 publish_to: "none"
 version: 1.0.0+1
@@ -31,6 +31,15 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  # Add the launcher icons package here
+  flutter_launcher_icons: "^0.13.1" # Use the latest version
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  # IMPORTANT: This path must point to your desired icon image.
+  image_path: "assets/images/ecocycle.png" 
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true

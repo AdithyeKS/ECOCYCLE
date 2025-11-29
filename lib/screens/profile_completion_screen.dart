@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:ecocycle_1/core/supabase_config.dart';
-import 'package:ecocycle_1/screens/home_shell.dart';
-import 'package:ecocycle_1/screens/login_screen.dart';
+import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:EcoCycle/screens/home_shell.dart';
+import 'package:EcoCycle/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileCompletionScreen extends StatefulWidget {
@@ -10,7 +10,8 @@ class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({super.key, required this.toggleTheme});
 
   @override
-  State<ProfileCompletionScreen> createState() => _ProfileCompletionScreenState();
+  State<ProfileCompletionScreen> createState() =>
+      _ProfileCompletionScreenState();
 }
 
 class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
@@ -42,7 +43,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   Future<void> _loadInitialData() async {
     final user = AppSupabase.client.auth.currentUser;
     if (user == null) {
-      if (mounted) Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      if (mounted)
+        Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const LoginScreen()));
       return;
     }
     _userId = user.id;
@@ -63,8 +66,10 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
 
       if (existingProfile != null) {
         // Overwrite/update with existing profile data
-        _nameController.text = existingProfile['full_name']?.toString() ?? _nameController.text;
-        _phoneController.text = existingProfile['phone_number']?.toString() ?? _phoneController.text;
+        _nameController.text =
+            existingProfile['full_name']?.toString() ?? _nameController.text;
+        _phoneController.text = existingProfile['phone_number']?.toString() ??
+            _phoneController.text;
         // Age assignment removed
         _addressController.text = existingProfile['address']?.toString() ?? '';
       }
@@ -72,10 +77,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       debugPrint('Error loading existing profile: $e');
     }
 
-
     if (mounted) setState(() => _isLoading = false);
   }
-
 
   Future<void> _completeProfile() async {
     // Age validation removed
@@ -84,7 +87,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     setState(() => _isSaving = true);
 
     try {
-      
       // Data to insert/update in the 'profiles' table
       final Map<String, dynamic> profileData = {
         'id': _userId!,
@@ -92,7 +94,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
         'phone_number': _phoneController.text.trim(),
         // FIX: Removed 'age' field completely from payload
         'address': _addressController.text.trim(),
-        'total_points': 0, 
+        'total_points': 0,
       };
 
       // Use upsert to handle both new user (insert) and existing user (update) cases
@@ -105,16 +107,17 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
         // Navigate to the main app shell and remove this screen
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => HomeShell(toggleTheme: widget.toggleTheme)),
+          MaterialPageRoute(
+              builder: (_) => HomeShell(toggleTheme: widget.toggleTheme)),
           (route) => false,
         );
       }
     } on PostgrestException catch (e) {
-       if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Database Error: ${e.message}')),
-          );
-       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Database Error: ${e.message}')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -132,7 +135,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       appBar: AppBar(
         // Using hardcoded string to prevent key display issue
         title: const Text('Complete Profile'),
-        automaticallyImplyLeading: false, 
+        automaticallyImplyLeading: false,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -153,10 +156,11 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                     // UI CLEANUP: Using hardcoded string to prevent key display issue
                     Text(
                       tr('essential_details'),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade700,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade700,
+                              ),
                     ),
                     const SizedBox(height: 8),
                     // UI CLEANUP: Using hardcoded string to prevent key display issue
@@ -166,11 +170,11 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Full Name 
+                    // Full Name
                     TextFormField(
                       controller: _nameController,
                       decoration: InputDecoration(
-                        labelText: tr('full_name'), 
+                        labelText: tr('full_name'),
                         prefixIcon: const Icon(Icons.person_outline),
                       ),
                       validator: (v) => (v == null || v.trim().length < 3)
@@ -178,7 +182,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                           : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Phone Number
                     TextFormField(
                       controller: _phoneController,
@@ -192,7 +196,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                           : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Address
                     TextFormField(
                       controller: _addressController,
@@ -219,7 +223,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                           : const Icon(Icons.check_circle_outline),
                       label: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(tr('save_and_continue'), style: const TextStyle(fontSize: 16)),
+                        child: Text(tr('save_and_continue'),
+                            style: const TextStyle(fontSize: 16)),
                       ),
                     ),
                   ],

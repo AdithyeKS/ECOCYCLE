@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:ecocycle_1/screens/home_screen.dart';
-import 'package:ecocycle_1/screens/map_screen.dart';
-import 'package:ecocycle_1/screens/rewards_screen.dart';
-import 'package:ecocycle_1/screens/settings_screen.dart';
+import 'package:EcoCycle/screens/home_screen.dart';
+import 'package:EcoCycle/screens/map_screen.dart';
+import 'package:EcoCycle/screens/rewards_screen.dart';
+import 'package:EcoCycle/screens/settings_screen.dart';
 
 class HomeShell extends StatefulWidget {
   final VoidCallback toggleTheme;

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:ecocycle_1/core/supabase_config.dart';
-import 'package:ecocycle_1/screens/profile_completion_screen.dart'; 
+import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:EcoCycle/screens/profile_completion_screen.dart';
 
 class SignupScreen extends StatefulWidget {
-  final VoidCallback? onThemeToggle; 
-  const SignupScreen({super.key, this.onThemeToggle}); 
+  final VoidCallback? onThemeToggle;
+  const SignupScreen({super.key, this.onThemeToggle});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -30,10 +30,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
   // Regex for mobile number validation: Only digits, 8 to 15 length
   static final _phoneRegex = RegExp(r'^\d{8,15}$');
-  
-  // Regex for general email validation
-  static final _emailRegex = RegExp(r'^[a-zA-Z0-Z9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
+  // Regex for general email validation
+  static final _emailRegex =
+      RegExp(r'^[a-zA-Z0-Z9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
   Future<void> _signup() async {
     if (!_form.currentState!.validate()) return;
@@ -50,7 +50,7 @@ class _SignupScreenState extends State<SignupScreen> {
           'full_name': _name.text.trim(),
           'phone': _phone.text.trim(),
         },
-        emailRedirectTo: null, 
+        emailRedirectTo: null,
       );
 
       // MODIFIED: Navigate to ProfileCompletionScreen
@@ -60,7 +60,8 @@ class _SignupScreenState extends State<SignupScreen> {
           context,
           MaterialPageRoute(
             // Pass the required toggleTheme function
-            builder: (_) => ProfileCompletionScreen(toggleTheme: widget.onThemeToggle ?? () {}),
+            builder: (_) => ProfileCompletionScreen(
+                toggleTheme: widget.onThemeToggle ?? () {}),
           ),
           (route) => false,
         );
@@ -106,18 +107,20 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _checkPasswordRequirement(String value, RegExp pattern) {
     return pattern.hasMatch(value);
   }
-  
+
   // Custom Input Decoration for the sleek look
-  InputDecoration _customInputDecoration({
-    required String labelText, 
-    required IconData prefixIcon, 
-    Widget? suffixIcon
-  }) {
+  InputDecoration _customInputDecoration(
+      {required String labelText,
+      required IconData prefixIcon,
+      Widget? suffixIcon}) {
     return InputDecoration(
       labelText: labelText,
-      prefixIcon: Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
+      prefixIcon:
+          Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context).cardColor.withOpacity(0.8), // Slightly transparent background
+      fillColor: Theme.of(context)
+          .cardColor
+          .withOpacity(0.8), // Slightly transparent background
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -125,15 +128,16 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        borderSide:
+            BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+        borderSide:
+            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
     );
   }
-
 
   @override
   void dispose() {
@@ -148,14 +152,16 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final passwordText = _password.text;
-    
+
     // Individual checks for real-time feedback
     final hasMinLength = passwordText.length >= 8;
-    final hasUppercase = _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
-    final hasLowercase = _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
+    final hasUppercase =
+        _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
+    final hasLowercase =
+        _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
     final hasNumber = _checkPasswordRequirement(passwordText, RegExp(r'\d'));
-    final hasSpecialChar = _checkPasswordRequirement(passwordText, RegExp(r'[!@#$%^&*()_+={}|:;<>,.?/~]'));
-
+    final hasSpecialChar = _checkPasswordRequirement(
+        passwordText, RegExp(r'[!@#$%^&*()_+={}|:;<>,.?/~]'));
 
     return Scaffold(
       body: Stack(
@@ -174,7 +180,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
           ),
-          
+
           // 2. Thematic Elements Layer (Simulated E-Waste/Recycling Blobs)
           // Top Left: Blue blob (suggesting screens/plastic)
           Positioned(
@@ -184,9 +190,11 @@ class _SignupScreenState extends State<SignupScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15), 
+                color: Colors.blue.withOpacity(0.15),
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)],
+                boxShadow: [
+                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
+                ],
               ),
             ),
           ),
@@ -198,9 +206,13 @@ class _SignupScreenState extends State<SignupScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1), 
+                color: Colors.yellow.shade700.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(50),
-                boxShadow: [BoxShadow(color: Colors.yellow.shade700.withOpacity(0.2), blurRadius: 30)],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.yellow.shade700.withOpacity(0.2),
+                      blurRadius: 30)
+                ],
               ),
             ),
           ),
@@ -246,7 +258,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 Text('Create Account',
                                     style: theme.textTheme.headlineMedium
                                         ?.copyWith(
-                                            fontWeight: FontWeight.bold, 
+                                            fontWeight: FontWeight.bold,
                                             color: theme.colorScheme.primary)),
                                 const SizedBox(height: 8),
                                 Text('Sign up to join our recycling community',
@@ -267,7 +279,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 return 'Enter a valid name (min 3 characters)';
                               }
                               if (!_nameRegex.hasMatch(v.trim())) {
-                                  return 'Name must start with a capital letter and only contain letters/spaces.';
+                                return 'Name must start with a capital letter and only contain letters/spaces.';
                               }
                               return null;
                             },
@@ -286,7 +298,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 return 'Mobile number is required';
                               }
                               if (!_phoneRegex.hasMatch(v.trim())) {
-                                  return 'Enter a valid phone number (8-15 digits only)';
+                                return 'Enter a valid phone number (8-15 digits only)';
                               }
                               return null;
                             },
@@ -297,16 +309,16 @@ class _SignupScreenState extends State<SignupScreen> {
                           TextFormField(
                             controller: _email,
                             decoration: _customInputDecoration(
-                                labelText: 'Email', 
+                                labelText: 'Email',
                                 prefixIcon: Icons.email_outlined),
                             validator: (v) {
-                                if (v == null || v.isEmpty) {
-                                  return 'Email is required';
-                                }
-                                if (!_emailRegex.hasMatch(v.trim())) {
-                                  return 'Enter a valid email format';
-                                }
-                                return null;
+                              if (v == null || v.isEmpty) {
+                                return 'Email is required';
+                              }
+                              if (!_emailRegex.hasMatch(v.trim())) {
+                                return 'Enter a valid email format';
+                              }
+                              return null;
                             },
                             keyboardType: TextInputType.emailAddress,
                           ),
@@ -315,12 +327,14 @@ class _SignupScreenState extends State<SignupScreen> {
                           // Password Field
                           TextFormField(
                             controller: _password,
-                            onChanged: (value) => setState(() {}), // Trigger rebuild on change
+                            onChanged: (value) =>
+                                setState(() {}), // Trigger rebuild on change
                             decoration: _customInputDecoration(
-                              labelText: 'Password', 
+                              labelText: 'Password',
                               prefixIcon: Icons.lock_outline,
                               suffixIcon: IconButton(
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility_off
@@ -341,21 +355,34 @@ class _SignupScreenState extends State<SignupScreen> {
                               return null;
                             },
                           ),
-                          
+
                           // Password Requirements List (visible when typing)
                           const SizedBox(height: 8),
-                          if (passwordText.isNotEmpty) // Only show when user starts typing
+                          if (passwordText
+                              .isNotEmpty) // Only show when user starts typing
                             Padding(
                               padding: const EdgeInsets.only(left: 4.0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Recommended security requirements:', style: TextStyle(color: theme.hintColor, fontSize: 13, fontWeight: FontWeight.w500)),
-                                  _buildPasswordRequirement('Minimum 8 characters', hasMinLength),
-                                  _buildPasswordRequirement('At least one uppercase letter (A-Z)', hasUppercase),
-                                  _buildPasswordRequirement('At least one lowercase letter (a-z)', hasLowercase),
-                                  _buildPasswordRequirement('At least one number (0-9)', hasNumber),
-                                  _buildPasswordRequirement('At least one special symbol', hasSpecialChar),
+                                  Text('Recommended security requirements:',
+                                      style: TextStyle(
+                                          color: theme.hintColor,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500)),
+                                  _buildPasswordRequirement(
+                                      'Minimum 8 characters', hasMinLength),
+                                  _buildPasswordRequirement(
+                                      'At least one uppercase letter (A-Z)',
+                                      hasUppercase),
+                                  _buildPasswordRequirement(
+                                      'At least one lowercase letter (a-z)',
+                                      hasLowercase),
+                                  _buildPasswordRequirement(
+                                      'At least one number (0-9)', hasNumber),
+                                  _buildPasswordRequirement(
+                                      'At least one special symbol',
+                                      hasSpecialChar),
                                 ],
                               ),
                             ),
@@ -384,8 +411,9 @@ class _SignupScreenState extends State<SignupScreen> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: Colors.white))
                                 : const Text('Sign up',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
                           ),
 
                           const SizedBox(height: 16),
@@ -396,10 +424,14 @@ class _SignupScreenState extends State<SignupScreen> {
                             style: OutlinedButton.styleFrom(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 16),
-                                side: BorderSide(color: theme.colorScheme.primary),
+                                side: BorderSide(
+                                    color: theme.colorScheme.primary),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12))),
-                            child: Text('Already have an account?', style: TextStyle(color: theme.colorScheme.primary, fontSize: 16)),
+                            child: Text('Already have an account?',
+                                style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontSize: 16)),
                           ),
                         ],
                       ),

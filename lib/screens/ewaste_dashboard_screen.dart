@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:ecocycle_1/screens/add_ewaste_screen.dart';
-import 'package:ecocycle_1/screens/view_ewaste_screen.dart';
-import 'package:ecocycle_1/screens/map_screen.dart';
-import 'package:ecocycle_1/screens/rewards_screen.dart';
-import 'package:ecocycle_1/screens/pickup_request_screen.dart';
+import 'package:EcoCycle/screens/add_ewaste_screen.dart';
+import 'package:EcoCycle/screens/view_ewaste_screen.dart';
+import 'package:EcoCycle/screens/map_screen.dart';
+import 'package:EcoCycle/screens/rewards_screen.dart';
+import 'package:EcoCycle/screens/pickup_request_screen.dart';
 
 class EwasteDashboardScreen extends StatelessWidget {
   const EwasteDashboardScreen({super.key});
@@ -12,7 +12,7 @@ class EwasteDashboardScreen extends StatelessWidget {
   void _open(BuildContext context, Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
-  
+
   // NEW PROFESSIONAL TILE WIDGET
   Widget _actionTile(
     BuildContext context, {
@@ -130,7 +130,7 @@ class EwasteDashboardScreen extends StatelessWidget {
               color: Colors.orange,
               onTap: () => _open(context, const ViewEwasteScreen()),
             ),
-            
+
             const SizedBox(height: 24),
 
             // Resource Section Header

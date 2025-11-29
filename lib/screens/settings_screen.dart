@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:ecocycle_1/screens/profile_screen.dart';
-import 'package:ecocycle_1/screens/login_screen.dart';
+import 'package:EcoCycle/screens/profile_screen.dart';
+import 'package:EcoCycle/screens/login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback toggleTheme;
