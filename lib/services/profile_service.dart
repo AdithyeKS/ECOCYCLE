@@ -22,7 +22,7 @@ class ProfileService {
         .update({'total_points': newPoints}).eq('id', userId);
   }
 
-  /// NEW FUNCTION: Deduct EcoPoints from user profile
+  /// Deduct EcoPoints from user profile
   Future<void> deductEcoPoints(String userId, int points) async {
     // Get current points
     final currentProfile = await supabase
@@ -44,6 +44,44 @@ class ProfileService {
         .from('profiles')
         .update({'total_points': newPoints}).eq('id', userId);
   }
+  
+  // --- ROLE MANAGEMENT FUNCTIONS ---
+
+  /// Fetches the profile for a given user ID.
+  Future<Map<String, dynamic>?> fetchProfile(String userId) async {
+    final res = await supabase
+        .from('profiles')
+        .select('full_name, user_role, id') // Fetch role and name
+        .eq('id', userId)
+        .maybeSingle();
+    return res;
+  }
+  
+  /// Fetches all profiles for admin management.
+  Future<List<Map<String, dynamic>>> fetchAllProfiles() async {
+    final data = await supabase
+        .from('profiles')
+        .select('id, full_name, email, user_role, volunteer_requested_at') // Includes NEW FIELD for filtering requests
+        .order('full_name', ascending: true);
+    return (data as List).map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  /// Updates the role of a user. Clears the request timestamp if role is being set.
+  Future<void> updateUserRole(String userId, String newRole) async {
+    await supabase.from('profiles').update({
+      'user_role': newRole,
+      'volunteer_requested_at': null, // Clear request when role is set/changed
+    }).eq('id', userId);
+  }
+  
+  /// Marks a user as requesting the Volunteer role by setting a timestamp.
+  Future<void> requestVolunteerRole(String userId) async {
+    await supabase.from('profiles').update({
+      'volunteer_requested_at': DateTime.now().toIso8601String(),
+    }).eq('id', userId);
+  }
+
+  // --- EMAIL NOTIFICATION FUNCTIONS ---
 
   /// Send email notification (placeholder - would integrate with email service)
   Future<void> sendEmailNotification(
@@ -54,9 +92,6 @@ class ProfileService {
     print('Subject: $subject');
     print('Message: $message');
     print('---');
-
-    // In production, this would call an email service API
-    // Example: await emailService.sendEmail(userEmail, subject, message);
   }
 
   /// Send status update notification

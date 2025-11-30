@@ -35,6 +35,16 @@ class PickupAgent {
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
       );
+      
+  // NEW: Placeholder for safe lookup in the dashboard
+  factory PickupAgent.placeholder() => PickupAgent(
+      id: '0',
+      name: 'N/A (Unassigned)',
+      phone: 'N/A',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+  );
+
 
   Map<String, dynamic> toJson() => {
         'id': id,

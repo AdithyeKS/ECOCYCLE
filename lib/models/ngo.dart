@@ -38,6 +38,16 @@ class Ngo {
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
       );
+      
+  // NEW: Placeholder for safe lookup in the dashboard
+  factory Ngo.placeholder() => Ngo(
+      id: '0',
+      name: 'N/A (Unassigned)',
+      address: 'N/A',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+  );
+
 
   Map<String, dynamic> toJson() => {
         'id': id,

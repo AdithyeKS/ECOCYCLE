@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS ngos (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS pickup_agents (
+CREATE TABLE IF NOT EXISTS pickup_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS pickup_agents (
 );
 
 -- Extend ewaste_items table with new columns for the complete flow
-ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS assigned_agent_id UUID REFERENCES pickup_agents(id);
+ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS assigned_agent_id UUID REFERENCES pickup_requests(id);
 ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS assigned_ngo_id UUID REFERENCES ngos(id);
 ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending'; -- pending, assigned, collected, delivered
 ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS tracking_notes JSONB; -- Array of tracking updates with timestamps
@@ -73,21 +73,28 @@ CREATE TABLE IF NOT EXISTS profiles (
   phone_number TEXT,
   age INTEGER,
   address TEXT,
-  total_points INTEGER DEFAULT 0
+  total_points INTEGER DEFAULT 0,
+  user_role TEXT DEFAULT 'user',
+  volunteer_requested_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Policy for users to read/update their own profile
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+
+-- Recreate policies with explicit auth checks to avoid recursion
 CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING (auth.uid() = id);
+  FOR SELECT USING (auth.uid()::text = id::text);
 
 CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
+  FOR UPDATE USING (auth.uid()::text = id::text);
 
 CREATE POLICY "Users can insert own profile" ON profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+  FOR INSERT WITH CHECK (auth.uid()::text = id::text);
 
 -- For future expansion (dynamic rewards/badges system):
 

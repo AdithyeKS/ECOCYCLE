@@ -1,4 +1,4 @@
-import 'dart:typed_data'; 
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_config.dart';
 import '../models/ewaste_item.dart';
@@ -10,12 +10,11 @@ class EwasteService {
   final SupabaseClient supabase = AppSupabase.client;
   static const bucket = 'ewaste_images';
 
-  // FIX: Renamed from private '_calculateRewardPoints' to public 'calculatePointsForCategory'
-  // This resolves the error in lib/screens/add_ewaste_screen.dart
+  /// Calculates the EcoPoints reward for a given E-waste category.
   int calculatePointsForCategory(String categoryId) {
-    const basePoints = 50; 
-    
-    // Additional points based on category
+    const basePoints = 50;
+
+    // Additional points based on category (reflecting size/complexity)
     final categoryBonus = switch (categoryId) {
       'tv' => 100, // TVs & Monitors (larger items)
       'computer' => 80, // Computers
@@ -29,26 +28,27 @@ class EwasteService {
 
     return basePoints + categoryBonus;
   }
-  
+
+  /// Uploads image bytes to Supabase storage and returns the public URL.
   Future<String> uploadImage(Uint8List fileBytes, String mimeType) async {
     final filename = 'ew_${DateTime.now().millisecondsSinceEpoch}.png';
-    final path = 'uploads/$filename'; 
-    
+    final path = 'uploads/$filename';
+
     // Upload the bytes directly
     await supabase.storage.from(bucket).uploadBinary(
-      path, 
-      fileBytes,
-      fileOptions: FileOptions(
-        contentType: mimeType, 
-        cacheControl: '3600',
-      ),
-    );
-    
+          path,
+          fileBytes,
+          fileOptions: FileOptions(
+            contentType: mimeType,
+            cacheControl: '3600',
+          ),
+        );
+
     // Get the public URL for display and database storage
     return supabase.storage.from(bucket).getPublicUrl(path);
   }
 
-
+  /// Inserts a new E-waste item into the database.
   Future<void> insertEwaste({
     required String userId,
     required String categoryId,
@@ -57,9 +57,8 @@ class EwasteService {
     required String location,
     required String imageUrl,
   }) async {
-    final rewardPoints = calculatePointsForCategory(categoryId); // Using public method
+    final rewardPoints = calculatePointsForCategory(categoryId);
 
-    // CRUCIAL: This database insert logic is fine and will work if the upload succeeds.
     await supabase.from('ewaste_items').insert({
       'user_id': userId,
       'category_id': categoryId,
@@ -67,9 +66,9 @@ class EwasteService {
       'description': description,
       'location': location,
       'photo_url': imageUrl,
-      'status': 'Pending',
+      'status': 'Pending', // User-facing status
       'reward_points': rewardPoints,
-      'delivery_status': 'pending',
+      'delivery_status': 'pending', // Internal tracking status
     });
 
     // Send email confirmation
@@ -77,7 +76,8 @@ class EwasteService {
     await profileService.sendStatusUpdateNotification(
         userId, itemName, 'Pending - Item submitted for recycling');
   }
-  
+
+  /// Fetches all E-waste items (typically for Admin/Agent view).
   Future<List<EwasteItem>> fetchAll() async {
     final data = await supabase
         .from('ewaste_items')
@@ -86,71 +86,85 @@ class EwasteService {
     return (data as List).map((e) => EwasteItem.fromJson(e)).toList();
   }
 
-  Future<void> updateStatus(int id, String status) async {
+  /// Updates the user-facing status of an E-waste item.
+  Future<void> updateStatus(String id, String status) async {
     await supabase.from('ewaste_items').update({'status': status}).eq('id', id);
   }
 
-  Future<void> assignTo(int id, String name) async {
+  /// Assigns a name (placeholder) to an E-waste item.
+  Future<void> assignTo(String id, String name) async {
     await supabase
         .from('ewaste_items')
         .update({'assigned_to': name}).eq('id', id);
   }
 
-  Future<void> deleteItem(int id) async {
+  /// Deletes an E-waste item.
+  Future<void> deleteItem(String id) async {
     await supabase.from('ewaste_items').delete().eq('id', id);
   }
 
-  // NGO Management Methods
+  // --- NGO Management Methods ---
+
+  /// Fetches a list of registered NGOs.
   Future<List<Ngo>> fetchNgos() async {
     final data = await supabase
         .from('ngos')
         .select()
-        // Removed eq('is_government_approved', true) to show all NGOs for drop-off
         .order('created_at', ascending: false);
     return (data as List).map((e) => Ngo.fromJson(e)).toList();
   }
 
+  /// Adds a new NGO profile.
   Future<void> addNgo(Ngo ngo) async {
     await supabase.from('ngos').insert(ngo.toJson());
   }
 
+  /// Updates an existing NGO profile.
   Future<void> updateNgo(String id, Map<String, dynamic> updates) async {
     await supabase.from('ngos').update(updates).eq('id', id);
   }
 
+  /// Deletes an NGO profile.
   Future<void> deleteNgo(String id) async {
     await supabase.from('ngos').delete().eq('id', id);
   }
 
-  // Pickup Agent Management Methods
+  // --- Pickup Agent Management Methods ---
+
+  /// Fetches a list of active Pickup Agents.
   Future<List<PickupAgent>> fetchPickupAgents() async {
     final data = await supabase
-        .from('pickup_agents')
+        .from('pickup_requests')
         .select()
         .eq('is_active', true)
         .order('created_at', ascending: false);
     return (data as List).map((e) => PickupAgent.fromJson(e)).toList();
   }
 
+  /// Adds a new Pickup Agent profile.
   Future<void> addPickupAgent(PickupAgent agent) async {
-    await supabase.from('pickup_agents').insert(agent.toJson());
+    await supabase.from('pickup_requests').insert(agent.toJson());
   }
 
+  /// Updates an existing Pickup Agent profile.
   Future<void> updatePickupAgent(
       String id, Map<String, dynamic> updates) async {
-    await supabase.from('pickup_agents').update(updates).eq('id', id);
+    await supabase.from('pickup_requests').update(updates).eq('id', id);
   }
 
+  /// Deletes a Pickup Agent profile.
   Future<void> deletePickupAgent(String id) async {
-    await supabase.from('pickup_agents').delete().eq('id', id);
+    await supabase.from('pickup_requests').delete().eq('id', id);
   }
 
-  // Assignment Methods
-  Future<void> assignPickupAgent(int itemId, String agentId) async {
+  // --- Assignment & Tracking Methods ---
+
+  /// Assigns a Pickup Agent to an E-waste item.
+  Future<void> assignPickupAgent(String itemId, String agentId) async {
     await supabase.from('ewaste_items').update({
       'assigned_agent_id': agentId,
       'delivery_status': 'assigned',
-      'status': 'Picked', // Changed from 'Approved' to 'Picked'
+      'status': 'Picked', // User status updated to reflect assignment
     }).eq('id', itemId);
 
     // Send status update notification
@@ -165,19 +179,22 @@ class EwasteService {
         item['item_name'], 'Picked - Agent assigned for pickup');
   }
 
-  Future<void> assignNgo(int itemId, String ngoId) async {
+  /// Assigns an NGO as the final destination for an E-waste item.
+  Future<void> assignNgo(String itemId, String ngoId) async {
     await supabase.from('ewaste_items').update({
       'assigned_ngo_id': ngoId,
     }).eq('id', itemId);
   }
 
-  Future<void> schedulePickup(int itemId, DateTime scheduledTime) async {
+  /// Sets a scheduled pickup time for an E-waste item.
+  Future<void> schedulePickup(String itemId, DateTime scheduledTime) async {
     await supabase.from('ewaste_items').update({
       'pickup_scheduled_at': scheduledTime.toIso8601String(),
     }).eq('id', itemId);
   }
 
-  Future<void> markAsCollected(int itemId) async {
+  /// Marks an item as collected by the agent.
+  Future<void> markAsCollected(String itemId) async {
     final now = DateTime.now();
     await supabase.from('ewaste_items').update({
       'delivery_status': 'collected',
@@ -189,11 +206,12 @@ class EwasteService {
     await _addTrackingNote(itemId, 'Item collected by pickup agent', now);
   }
 
-  Future<void> markAsDelivered(int itemId) async {
+  /// Marks an item as delivered to the NGO and awards points.
+  Future<void> markAsDelivered(String itemId) async {
     final now = DateTime.now();
     await supabase.from('ewaste_items').update({
       'delivery_status': 'delivered',
-      'status': 'Recycled', // Changed from 'Delivered' to 'Recycled'
+      'status': 'Recycled', // Final status
       'delivered_at': now.toIso8601String(),
     }).eq('id', itemId);
 
@@ -208,13 +226,16 @@ class EwasteService {
         .single();
 
     final profileService = ProfileService();
+    // Award points
     await profileService.addEcoPoints(item['user_id'], item['reward_points']);
+    // Notify user of points earned
     await profileService.sendPointsEarnedNotification(
         item['user_id'], item['item_name'], item['reward_points']);
   }
 
+  /// Internal method to append a note to the item's tracking history.
   Future<void> _addTrackingNote(
-      int itemId, String note, DateTime timestamp) async {
+      String itemId, String note, DateTime timestamp) async {
     final currentItem = await supabase
         .from('ewaste_items')
         .select('tracking_notes')
@@ -227,6 +248,8 @@ class EwasteService {
       'timestamp': timestamp.toIso8601String(),
     };
 
+    // Note: Supabase/Postgres requires Dart List<dynamic> to be cast to
+    // List<Map<String, dynamic>> when interacting with the database JSONB field.
     existingNotes.add(newNote);
 
     await supabase.from('ewaste_items').update({
@@ -234,7 +257,7 @@ class EwasteService {
     }).eq('id', itemId);
   }
 
-  // Get items assigned to a specific agent
+  /// Fetches items specifically assigned to a given Pickup Agent.
   Future<List<EwasteItem>> fetchItemsForAgent(String agentId) async {
     try {
       final data = await supabase
@@ -242,6 +265,7 @@ class EwasteService {
           .select()
           .eq('assigned_agent_id', agentId)
           .order('pickup_scheduled_at', ascending: true);
+      // Ensure the return type matches the expected List<EwasteItem>
       return (data as List).map((e) => EwasteItem.fromJson(e)).toList();
     } catch (e) {
       print('Error fetching items for agent: $e');

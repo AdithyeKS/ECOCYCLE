@@ -3,6 +3,7 @@ import 'package:EcoCycle/core/supabase_config.dart';
 import 'package:EcoCycle/screens/forgot_password_screen.dart';
 import 'package:EcoCycle/screens/home_shell.dart';
 import 'package:EcoCycle/screens/signup_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback? onThemeToggle;
@@ -20,33 +21,70 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _error;
 
-  // Regex for general email validation
   static final _emailRegex =
       RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-  // Regex for minimum 8 characters (required for login)
-  static final _minPasswordRegex = RegExp(r'^.{8,}$');
+
+  String _mapAuthError(String rawError) {
+    if (rawError.contains('Invalid login credentials')) {
+      return 'Incorrect email or password. If you don\'t have an account, please create one.';
+    }
+    if (rawError.contains('Email not confirmed')) {
+      return 'Email not verified. Please check your inbox (and spam folder).';
+    }
+    return 'Login failed. Check your connection or contact support.';
+  }
 
   Future<void> _login() async {
     if (!_form.currentState!.validate()) return;
+
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await AppSupabase.client.auth.signInWithPassword(
+      final authResponse = await AppSupabase.client.auth.signInWithPassword(
         email: _email.text.trim(),
         password: _password.text,
       );
 
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (_) =>
-                HomeShell(toggleTheme: widget.onThemeToggle ?? () {})),
-      );
+      // CRITICAL FIX: Ensure the profile exists and has a role set upon login.
+      // This helps mitigate race conditions where HomeShell might load faster than the DB update.
+      final user = authResponse.user;
+      if (user != null) {
+        final userId = user.id;
+        final profileExists = await AppSupabase.client
+            .from('profiles')
+            .select('user_role') // Just fetch the role column
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (profileExists == null) {
+          // If profile is missing (first time login/signup failed profile completion),
+          // insert a default user profile.
+          await AppSupabase.client.from('profiles').insert({
+            'id': userId,
+            'full_name': user.email?.split('@').first ?? 'User',
+            'total_points': 0,
+            'user_role': 'user', // Default role for new users
+          });
+        }
+      }
+
+      // 2. Successful Login: Navigate to Homepage
+      if (authResponse.session != null && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  HomeShell(toggleTheme: widget.onThemeToggle ?? () {})),
+        );
+      }
+    } on AuthException catch (e) {
+      // 3. Catch Supabase errors and show user-friendly message
+      setState(() => _error = _mapAuthError(e.message ?? e.toString()));
     } catch (e) {
-      setState(() => _error = e.toString());
+      // 4. Catch general exceptions
+      setState(() => _error = _mapAuthError(e.toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -62,13 +100,11 @@ class _LoginScreenState extends State<LoginScreen> {
       prefixIcon:
           Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context)
-          .cardColor
-          .withOpacity(0.8), // Slightly transparent background
+      fillColor: Theme.of(context).cardColor.withOpacity(0.8),
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none, // Remove border for a cleaner look
+        borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -79,6 +115,35 @@ class _LoginScreenState extends State<LoginScreen> {
         borderRadius: BorderRadius.circular(12),
         borderSide:
             BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+      ),
+    );
+  }
+
+  // Widget: Professional Error Display
+  Widget _buildErrorBox(BuildContext context, String message) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.red.shade900.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.red.shade400, width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade400, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.red.shade400,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -96,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                // Using a darker green/blue gradient for a rich, modern look
                 colors: [
                   Colors.teal.shade800,
                   Colors.green.shade700,
@@ -106,8 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // 2. Thematic Elements Layer (Simulated E-Waste/Recycling Blobs)
-          // Top Left: Blue blob (suggesting screens/plastic)
+          // 2. Thematic Elements Layer (Blobs)
           Positioned(
             top: -50,
             left: -50,
@@ -115,15 +178,14 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
-                ],
-              ),
+                  color: Colors.blue.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.blue.withOpacity(0.2), blurRadius: 40)
+                  ]),
             ),
           ),
-          // Bottom Right: Yellow/Orange element (suggesting copper/gold circuits)
           Positioned(
             bottom: -30,
             right: -30,
@@ -131,17 +193,15 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(50),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.yellow.shade700.withOpacity(0.2),
-                      blurRadius: 30)
-                ],
-              ),
+                  color: Colors.yellow.shade700.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(50),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.yellow.shade700.withOpacity(0.2),
+                        blurRadius: 30)
+                  ]),
             ),
           ),
-          // Center Right: Green element (representing growth/recycling)
           Positioned(
             top: 200,
             right: 10,
@@ -149,9 +209,8 @@ class _LoginScreenState extends State<LoginScreen> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.lightGreenAccent.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
+                  color: Colors.lightGreenAccent.withOpacity(0.1),
+                  shape: BoxShape.circle),
             ),
           ),
 
@@ -162,11 +221,10 @@ class _LoginScreenState extends State<LoginScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Card(
-                  elevation: 20, // High elevation for the floating effect
+                  elevation: 20,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
-                  color: theme.cardColor
-                      .withOpacity(0.95), // Semi-transparent card
+                  color: theme.cardColor.withOpacity(0.95),
                   child: Padding(
                     padding: const EdgeInsets.all(30),
                     child: Form(
@@ -201,16 +259,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: _customInputDecoration(
                                 labelText: 'Email',
                                 prefixIcon: Icons.email_outlined),
+                            keyboardType: TextInputType.emailAddress,
                             validator: (v) {
                               if (v == null || v.isEmpty) {
-                                return 'Email is required';
+                                return 'Email is required to log in.';
                               }
-                              if (!_emailRegex.hasMatch(v.trim())) {
-                                return 'Enter a valid email format';
+                              if (v.length < 5 || !v.contains('@')) {
+                                return 'Please ensure the input resembles an email.';
                               }
                               return null;
                             },
-                            keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 16),
 
@@ -232,10 +290,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             obscureText: _obscurePassword,
-                            validator: (v) =>
-                                (v == null || !_minPasswordRegex.hasMatch(v))
-                                    ? 'Minimum 8 characters required'
-                                    : null,
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Password is required to log in.'
+                                : null,
                           ),
                           const SizedBox(height: 8),
 
@@ -253,27 +310,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
 
-                          if (_error != null) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(_error!,
-                                  style: const TextStyle(color: Colors.red)),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
+                          // Enhanced Error Display
+                          if (_error != null) _buildErrorBox(context, _error!),
 
                           const SizedBox(height: 16),
                           // Login Button
                           FilledButton(
                             onPressed: _busy ? null : _login,
                             style: FilledButton.styleFrom(
-                                backgroundColor:
-                                    theme.colorScheme.primary, // Themed Color
+                                backgroundColor: theme.colorScheme.primary,
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(

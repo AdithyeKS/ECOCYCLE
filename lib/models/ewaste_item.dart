@@ -1,5 +1,5 @@
 class EwasteItem {
-  final int id;
+  final String id;
   final String userId; // Link to authenticated user
   final String categoryId;
   final String itemName;
@@ -44,7 +44,7 @@ class EwasteItem {
   });
 
   factory EwasteItem.fromJson(Map<String, dynamic> json) => EwasteItem(
-        id: json['id'] as int,
+        id: json['id'] as String,
         userId: json['user_id'] ?? '',
         categoryId: json['category_id'] ?? '',
         itemName: json['item_name'] ?? '',
