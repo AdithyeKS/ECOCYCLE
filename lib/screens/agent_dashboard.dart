@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 import '../models/ewaste_item.dart';
 import '../services/ewaste_service.dart';
 import '../core/supabase_config.dart'; // Import for Supabase client
+import 'login_screen.dart'; // REQUIRED for navigation after logout
 
 class AgentDashboard extends StatefulWidget {
   const AgentDashboard({super.key});
@@ -22,7 +23,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
     super.initState();
     _initializeAgent();
   }
-  
+
   // New function to get the current user's ID
   void _initializeAgent() {
     final user = AppSupabase.client.auth.currentUser;
@@ -62,7 +63,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
       _showSnackbar('Error loading assigned items: $e');
     }
   }
-  
+
   void _showSnackbar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,7 +77,8 @@ class _AgentDashboardState extends State<AgentDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(tr('confirm_collection')),
-        content: Text(tr('mark_collected_confirm').replaceAll('{itemName}', item.itemName)),
+        content: Text(tr('mark_collected_confirm')
+            .replaceAll('{itemName}', item.itemName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -106,7 +108,8 @@ class _AgentDashboardState extends State<AgentDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(tr('confirm_delivery')),
-        content: Text(tr('mark_delivered_confirm').replaceAll('{itemName}', item.itemName)),
+        content: Text(tr('mark_delivered_confirm')
+            .replaceAll('{itemName}', item.itemName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -144,6 +147,52 @@ class _AgentDashboardState extends State<AgentDashboard> {
     }
   }
 
+  // --- Logout Functionality ---
+  Future<void> _logout() async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Sign Out'),
+        content: const Text(
+            'Are you sure you want to sign out of the Agent Dashboard?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade400,
+            ),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSignOut == true) {
+      try {
+        await AppSupabase.client.auth.signOut();
+        if (context.mounted) {
+          // Navigate back to login screen and remove all other routes
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const LoginScreen(),
+            ),
+            (r) => false,
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to sign out: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -161,6 +210,12 @@ class _AgentDashboardState extends State<AgentDashboard> {
             icon: const Icon(Icons.refresh),
             onPressed: _fetchAssignedItems,
             tooltip: tr('refresh'),
+          ),
+          // ADDED: Logout Button
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: _logout,
+            tooltip: 'Sign Out',
           ),
         ],
       ),
@@ -182,11 +237,13 @@ class _AgentDashboardState extends State<AgentDashboard> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.assignment, size: 64, color: Colors.grey),
+                          const Icon(Icons.assignment,
+                              size: 64, color: Colors.grey),
                           const SizedBox(height: 16),
                           Text(
                             tr('no_assigned_pickups'),
-                            style: const TextStyle(fontSize: 18, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 18, color: Colors.grey),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -204,7 +261,8 @@ class _AgentDashboardState extends State<AgentDashboard> {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           elevation: 4,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -221,20 +279,26 @@ class _AgentDashboardState extends State<AgentDashboard> {
                                               width: 70,
                                               height: 70,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) =>
+                                              errorBuilder: (context, error,
+                                                      stackTrace) =>
                                                   Container(
                                                 width: 70,
                                                 height: 70,
                                                 color: Colors.grey[200],
-                                                child: const Icon(Icons.image_not_supported, size: 30),
+                                                child: const Icon(
+                                                    Icons.image_not_supported,
+                                                    size: 30),
                                               ),
                                             )
-                                          : const Icon(Icons.image_not_supported, size: 70),
+                                          : const Icon(
+                                              Icons.image_not_supported,
+                                              size: 70),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             item.itemName,
@@ -246,7 +310,8 @@ class _AgentDashboardState extends State<AgentDashboard> {
                                           const SizedBox(height: 4),
                                           Text(
                                             item.description,
-                                            style: TextStyle(color: Colors.grey[600]),
+                                            style: TextStyle(
+                                                color: Colors.grey[600]),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -256,28 +321,36 @@ class _AgentDashboardState extends State<AgentDashboard> {
                                   ],
                                 ),
                                 const Divider(height: 24),
-                                
+
                                 // Pickup Details
-                                _detailRow(Icons.location_on, 'Location:', item.location),
+                                _detailRow(Icons.location_on, 'Location:',
+                                    item.location),
                                 if (item.pickupScheduledAt != null)
-                                  _detailRow(Icons.schedule, 'Scheduled:',
-                                      DateFormat('MMM d, h:mm a').format(item.pickupScheduledAt!.toLocal())),
-                                
+                                  _detailRow(
+                                      Icons.schedule,
+                                      'Scheduled:',
+                                      DateFormat('MMM d, h:mm a').format(
+                                          item.pickupScheduledAt!.toLocal())),
+
                                 const SizedBox(height: 12),
 
                                 // Status and Action Buttons
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
                                       decoration: BoxDecoration(
-                                        color: _getStatusColor(item.deliveryStatus).withOpacity(0.15),
+                                        color:
+                                            _getStatusColor(item.deliveryStatus)
+                                                .withOpacity(0.15),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
                                         item.deliveryStatus.toUpperCase(),
                                         style: TextStyle(
-                                          color: _getStatusColor(item.deliveryStatus),
+                                          color: _getStatusColor(
+                                              item.deliveryStatus),
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
                                         ),
@@ -287,19 +360,24 @@ class _AgentDashboardState extends State<AgentDashboard> {
                                     if (item.deliveryStatus == 'assigned')
                                       FilledButton.icon(
                                         onPressed: () => _markAsCollected(item),
-                                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                                        icon: const Icon(
+                                            Icons.check_circle_outline,
+                                            size: 18),
                                         label: Text(tr('mark_collected')),
                                         style: FilledButton.styleFrom(
-                                          backgroundColor: Colors.orange.shade700,
+                                          backgroundColor:
+                                              Colors.orange.shade700,
                                         ),
                                       )
                                     else if (item.deliveryStatus == 'collected')
                                       FilledButton.icon(
                                         onPressed: () => _markAsDelivered(item),
-                                        icon: const Icon(Icons.local_shipping, size: 18),
+                                        icon: const Icon(Icons.local_shipping,
+                                            size: 18),
                                         label: Text(tr('mark_delivered')),
                                         style: FilledButton.styleFrom(
-                                          backgroundColor: Colors.green.shade700,
+                                          backgroundColor:
+                                              Colors.green.shade700,
                                         ),
                                       ),
                                   ],
@@ -312,7 +390,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
                     ),
     );
   }
-  
+
   // Helper widget for detailed rows
   Widget _detailRow(IconData icon, String label, String value) {
     return Padding(
@@ -324,7 +402,8 @@ class _AgentDashboardState extends State<AgentDashboard> {
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
+            style:
+                TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[700]),
           ),
           const SizedBox(width: 4),
           Expanded(
