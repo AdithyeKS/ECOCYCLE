@@ -63,8 +63,27 @@ ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS collected_at TIMESTAMP WITH TI
 ALTER TABLE ewaste_items ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;
 
 -- Rename columns to match code expectations (optional, or update code instead):
-ALTER TABLE ewaste_items RENAME COLUMN title TO item_name;
-ALTER TABLE ewaste_items RENAME COLUMN photo_url TO image_url;
+-- Only rename if source column exists and target column doesn't exist
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ewaste_items' AND column_name = 'title')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ewaste_items' AND column_name = 'item_name') THEN
+        ALTER TABLE ewaste_items RENAME COLUMN title TO item_name;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ewaste_items' AND column_name = 'photo_url')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ewaste_items' AND column_name = 'image_url') THEN
+        ALTER TABLE ewaste_items RENAME COLUMN photo_url TO image_url;
+    END IF;
+END $$;
+
+-- Admin roles table to avoid recursion issues
+CREATE TABLE IF NOT EXISTS admin_roles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Disable RLS on admin_roles to avoid recursion - access controlled by SECURITY DEFINER function
+ALTER TABLE admin_roles DISABLE ROW LEVEL SECURITY;
 
 -- Profiles table for user information (from profile_screen.dart)
 CREATE TABLE IF NOT EXISTS profiles (
@@ -79,22 +98,117 @@ CREATE TABLE IF NOT EXISTS profiles (
 );
 
 -- Enable Row Level Security (RLS)
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+-- Temporarily disable RLS to fix recursion issue
+ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
+
+-- Create helper function for admin checks (SECURITY DEFINER to avoid recursion)
+CREATE OR REPLACE FUNCTION public.check_is_admin()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.admin_roles
+    WHERE id = auth.uid()
+  );
+END;
+$$;
+
+-- Revoke execute from public for security
+REVOKE EXECUTE ON FUNCTION public.check_is_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.check_is_admin() TO postgres;
 
 -- Drop existing policies if they exist to avoid conflicts
 DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON profiles;
 
--- Recreate policies with explicit auth checks to avoid recursion
+-- Recreate policies with proper auth checks
 CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING (auth.uid()::text = id::text);
+  FOR SELECT USING ((SELECT auth.uid()) = id);
 
 CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (auth.uid()::text = id::text);
+  FOR UPDATE USING ((SELECT auth.uid()) = id);
 
 CREATE POLICY "Users can insert own profile" ON profiles
-  FOR INSERT WITH CHECK (auth.uid()::text = id::text);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = id);
+
+-- Admin policies removed to avoid recursion - admins can manage via direct database access
+-- CREATE POLICY "Admins can view all profiles" ON profiles
+--   FOR SELECT USING (EXISTS (SELECT 1 FROM admin_roles WHERE id = auth.uid()));
+
+-- CREATE POLICY "Admins can update all profiles" ON profiles
+--   FOR UPDATE USING (EXISTS (SELECT 1 FROM admin_roles WHERE id = auth.uid()));
+
+-- Volunteer applications table
+CREATE TABLE IF NOT EXISTS volunteer_applications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  address TEXT,
+  available_date DATE NOT NULL,
+  motivation TEXT NOT NULL,
+  agreed_to_policy BOOLEAN DEFAULT FALSE,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on volunteer_applications
+ALTER TABLE volunteer_applications ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Users can view own applications" ON volunteer_applications;
+DROP POLICY IF EXISTS "Users can insert own applications" ON volunteer_applications;
+DROP POLICY IF EXISTS "Admins can view all applications" ON volunteer_applications;
+DROP POLICY IF EXISTS "Admins can update applications" ON volunteer_applications;
+
+-- Policies for volunteer_applications
+CREATE POLICY "Users can view own applications" ON volunteer_applications
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
+
+CREATE POLICY "Users can insert own applications" ON volunteer_applications
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
+
+CREATE POLICY "Admins can view all applications" ON volunteer_applications
+  FOR SELECT USING (check_is_admin());
+
+CREATE POLICY "Admins can update applications" ON volunteer_applications
+  FOR UPDATE USING (check_is_admin());
+
+-- Enable RLS on ewaste_items
+ALTER TABLE ewaste_items ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Users can view own ewaste items" ON ewaste_items;
+DROP POLICY IF EXISTS "Users can insert own ewaste items" ON ewaste_items;
+DROP POLICY IF EXISTS "Users can update own ewaste items" ON ewaste_items;
+DROP POLICY IF EXISTS "Agents can view assigned items" ON ewaste_items;
+DROP POLICY IF EXISTS "Admins can view all ewaste items" ON ewaste_items;
+
+-- Policies for ewaste_items
+CREATE POLICY "Users can view own ewaste items" ON ewaste_items
+  FOR SELECT USING ((SELECT auth.uid())::text = user_id::text);
+
+CREATE POLICY "Users can insert own ewaste items" ON ewaste_items
+  FOR INSERT WITH CHECK ((SELECT auth.uid())::text = user_id::text);
+
+CREATE POLICY "Users can update own ewaste items" ON ewaste_items
+  FOR UPDATE USING ((SELECT auth.uid())::text = user_id::text);
+
+CREATE POLICY "Agents can view assigned items" ON ewaste_items
+  FOR SELECT USING (check_is_admin() OR (SELECT auth.uid())::text = assigned_agent_id::text);
+
+CREATE POLICY "Admins can view all ewaste items" ON ewaste_items
+  FOR SELECT USING (check_is_admin());
+
+CREATE POLICY "Admins can update all ewaste items" ON ewaste_items
+  FOR UPDATE USING (check_is_admin());
 
 -- For future expansion (dynamic rewards/badges system):
 

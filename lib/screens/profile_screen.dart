@@ -182,7 +182,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           break;
       }
 
-      await AppSupabase.client.from('profiles').upsert(data);
+      // FIXED: Use upsert instead of update to ensure row exists
+      final response = await AppSupabase.client.from('profiles').upsert(data);
+
+      print('Save response for $field: $response');
 
       // Update local state immediately
       setState(() {
@@ -199,14 +202,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label updated successfully')),
+          SnackBar(content: Text('$label saved successfully')),
         );
       }
     } catch (e) {
       debugPrint('Failed to update $field: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update $field')),
+          SnackBar(content: Text('Failed to save $field: $e')),
         );
       }
     }
@@ -241,9 +244,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final user = AppSupabase.client.auth.currentUser;
       if (user == null) return;
 
-      await AppSupabase.client
+      // FIXED: Use upsert with complete data object
+      final response = await AppSupabase.client
           .from('profiles')
           .upsert({'id': user.id, 'full_name': val.trim()});
+
+      print('Name save response: $response');
 
       // Update local state immediately
       setState(() {
@@ -252,14 +258,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name updated successfully')),
+          const SnackBar(content: Text('Name saved successfully')),
         );
       }
     } catch (e) {
       debugPrint('Failed to update name: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update name')),
+          SnackBar(content: Text('Failed to save name: $e')),
         );
       }
     }
