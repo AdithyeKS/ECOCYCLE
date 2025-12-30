@@ -274,6 +274,45 @@ CREATE POLICY "Admins can update pickups" ON pickup_requests
   USING (check_is_admin());
 
 -- ============================================================================
+-- STEP 6.5: VOLUNTEER_AVAILABILITY TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS volunteer_availability (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  volunteer_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  available_date DATE NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(volunteer_id, available_date)
+);
+
+-- Enable RLS
+ALTER TABLE volunteer_availability ENABLE ROW LEVEL SECURITY;
+
+-- Policies for volunteer_availability
+CREATE POLICY "Volunteers can view own availability" ON volunteer_availability
+  FOR SELECT
+  USING ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Volunteers can insert own availability" ON volunteer_availability
+  FOR INSERT
+  WITH CHECK ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Volunteers can update own availability" ON volunteer_availability
+  FOR UPDATE
+  USING ((SELECT auth.uid()) = volunteer_id)
+  WITH CHECK ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Admins can view all availability" ON volunteer_availability
+  FOR SELECT
+  USING (check_is_admin());
+
+CREATE POLICY "Admins can update all availability" ON volunteer_availability
+  FOR UPDATE
+  USING (check_is_admin());
+
+-- ============================================================================
 -- STEP 7: NGO TABLE
 -- ============================================================================
 

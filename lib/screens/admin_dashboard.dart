@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../models/ewaste_item.dart';
 import '../models/ngo.dart';
 import '../models/pickup_agent.dart';
-import '../models/volunteer_application.dart'; // Added model
+import '../models/volunteer_application.dart';
+import '../models/volunteer_schedule.dart';
 import '../services/ewaste_service.dart';
 import '../services/profile_service.dart';
-import 'ngo_management_screen.dart';
-import 'agent_management_screen.dart';
-import '../core/supabase_config.dart'; 
-import 'login_screen.dart'; 
+import '../services/volunteer_schedule_service.dart';
+import '../core/supabase_config.dart';
+import 'login_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -19,31 +20,38 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard>
-    with SingleTickerProviderStateMixin {
+class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProviderStateMixin {
   final _ewasteService = EwasteService();
   final _profileService = ProfileService();
-  
+  final _scheduleService = VolunteerScheduleService();
+
   List<EwasteItem> ewasteItems = [];
   List<Ngo> ngos = [];
   List<PickupAgent> agents = [];
-  List<VolunteerApplication> volunteerApps = []; // Detailed applications
-  Map<String, String> userNames = {}; 
-  List<Map<String, dynamic>> allProfiles = []; 
+  List<VolunteerApplication> volunteerApps = [];
+  List<VolunteerSchedule> allSchedules = [];
+  Map<String, String> userNames = {};
   bool isLoading = true;
 
   late TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isDarkMode = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+    });
     fetchAllData();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -51,11 +59,22 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (!mounted) return;
     setState(() => isLoading = true);
     try {
-      final items = await _ewasteService.fetchAll();
-      final ngoList = await _ewasteService.fetchNgos();
-      final agentList = await _ewasteService.fetchPickupAgents();
-      final profiles = await _profileService.fetchAllProfiles();
-      final apps = await _profileService.fetchAllApplications(); // Fetch professional apps
+      // FIX: Cast the list to Iterable<Future<dynamic>> to satisfy Future.wait requirements
+      final results = await Future.wait<dynamic>([
+        _ewasteService.fetchAll(),
+        _ewasteService.fetchNgos(),
+        _ewasteService.fetchPickupAgents(),
+        _profileService.fetchAllProfiles(),
+        _profileService.fetchAllApplications(),
+        _scheduleService.fetchAllSchedules(),
+      ]);
+
+      final items = results[0] as List<EwasteItem>;
+      final ngoList = results[1] as List<Ngo>;
+      final agentList = results[2] as List<PickupAgent>;
+      final profiles = results[3] as List<Map<String, dynamic>>;
+      final apps = results[4] as List<VolunteerApplication>;
+      final schedules = results[5] as List<VolunteerSchedule>;
 
       final Map<String, String> namesMap = {};
       for (final profile in profiles) {
@@ -72,212 +91,253 @@ class _AdminDashboardState extends State<AdminDashboard>
         ngos = ngoList;
         agents = agentList;
         userNames = namesMap;
-        allProfiles = profiles;
         volunteerApps = apps;
+        allSchedules = schedules;
         isLoading = false;
       });
     } catch (e) {
       setState(() => isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error fetching data: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
-  // --- E-Waste Actions ---
+  // --- Actions ---
 
-  Future<void> updateDeliveryStatus(String itemId, String newStatus, String agentId) async {
+  Future<void> _updateStatus(String itemId, String newStatus, String agentId) async {
     try {
-      if (newStatus == 'collected') {
-        await _ewasteService.markAsCollected(itemId);
-      } else if (newStatus == 'delivered') {
-        await _ewasteService.markAsDelivered(itemId);
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Status updated to "$newStatus"!')));
-      }
+      if (newStatus == 'collected') await _ewasteService.markAsCollected(itemId);
+      if (newStatus == 'delivered') await _ewasteService.markAsDelivered(itemId);
       fetchAllData();
+      _showSuccess('Status updated to ${newStatus.toUpperCase()}');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Failed to update status: $e')));
-      }
+      _showError('Failed to update: $e');
     }
   }
 
-  Future<void> assignAgentAndNgo(String itemId, String? agentId, String? ngoId) async {
+  Future<void> _assignTask(String itemId, String? agentId, String? ngoId) async {
     try {
-      if (agentId != null && agentId != '0') {
-        await _ewasteService.assignPickupAgent(itemId, agentId);
-      }
-      if (ngoId != null && ngoId != '0') {
-        await _ewasteService.assignNgo(itemId, ngoId);
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Assignment successful!')));
-      }
+      if (agentId != null) await _ewasteService.assignPickupAgent(itemId, agentId);
+      if (ngoId != null) await _ewasteService.assignNgo(itemId, ngoId);
       fetchAllData();
+      _showSuccess('Task assigned successfully!');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Failed to assign: $e')));
-      }
+      _showError('Assignment failed: $e');
     }
   }
 
-  // --- Professional Volunteer Actions ---
+  Future<void> _handleAppDecision(VolunteerApplication app, bool approve) async {
+    try {
+      await _profileService.decideOnApplication(app.id, app.userId, approve);
+      fetchAllData();
+      _showSuccess(approve ? 'Volunteer Approved' : 'Volunteer Rejected');
+    } catch (e) {
+      _showError('Decision error: $e');
+    }
+  }
 
-  Future<void> _handleVolunteerDecision(VolunteerApplication app, bool approve) async {
-    final action = approve ? 'APPROVE' : 'REJECT';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('$action Volunteer?'),
-        content: Text('User: ${app.fullName}\nDecision will update their role and access.'),
+  void _showSuccess(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('✅ $msg'),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.green.shade800,
+    ));
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('❌ $msg'),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.red.shade800,
+    ));
+  }
+
+  // --- UI Components ---
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = _isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final cardColor = _isDarkMode ? const Color(0xFF1E293B) : Colors.white;
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _isDarkMode 
+                ? [const Color(0xFF1E293B), const Color(0xFF0F172A)] 
+                : [const Color(0xFF15803D), const Color(0xFF166534)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: const Text('Admin Console', style: TextStyle(fontWeight: FontWeight.bold)),
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          indicatorColor: Colors.amber,
+          tabs: const [
+            Tab(text: 'Dispatch', icon: Icon(Icons.local_shipping)),
+            Tab(text: 'Gatekeeper', icon: Icon(Icons.how_to_reg)),
+            Tab(text: 'Logistics', icon: Icon(Icons.calendar_month)),
+            Tab(text: 'Directory', icon: Icon(Icons.business_center)),
+            Tab(text: 'Pulse', icon: Icon(Icons.analytics)),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: approve ? Colors.green : Colors.red),
-            child: Text(action),
+          IconButton(
+            icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _logout(),
           ),
         ],
       ),
-    );
-
-    if (confirmed == true) {
-      try {
-        await _profileService.decideOnApplication(app.id, app.userId, approve);
-        fetchAllData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Decision recorded for ${app.fullName}')));
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-        }
-      }
-    }
-  }
-
-  Future<void> _logout() async {
-    final shouldSignOut = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Sign Out'),
-        content: const Text('Are you sure you want to sign out of the Admin Console?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade400),
-            child: const Text('Sign Out'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldSignOut == true) {
-      await AppSupabase.client.auth.signOut();
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (r) => false,
-        );
-      }
-    }
-  }
-
-  // --- UI Tabs ---
-
-  Widget _buildKPI(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      body: isLoading 
+        ? const Center(child: CircularProgressIndicator()) 
+        : Column(
             children: [
-              Icon(icon, size: 24, color: color),
-              const SizedBox(height: 4),
-              Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-              Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              _buildModernHeader(),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildDispatchTab(cardColor),
+                    _buildGatekeeperTab(cardColor),
+                    _buildLogisticsTab(cardColor),
+                    _buildDirectoryTab(cardColor),
+                    _buildPulseTab(cardColor),
+                  ],
+                ),
+              ),
             ],
           ),
+    );
+  }
+
+  Widget _buildModernHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildMiniKPI('Queue', ewasteItems.where((i) => i.deliveryStatus == 'pending').length.toString(), Colors.orange),
+            _buildMiniKPI('Active Help', agents.length.toString(), Colors.blue),
+            _buildMiniKPI('Pending Apps', volunteerApps.where((a) => a.status == 'pending').length.toString(), Colors.purple),
+            _buildMiniKPI('Completed', ewasteItems.where((i) => i.deliveryStatus == 'delivered').length.toString(), Colors.green),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildEwasteListTab() {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (ewasteItems.isEmpty) return const Center(child: Text('No e-waste items found'));
-    return RefreshIndicator(
-      onRefresh: fetchAllData,
-      child: ListView.builder(
-        itemCount: ewasteItems.length,
-        padding: const EdgeInsets.all(12),
-        itemBuilder: (context, index) => _EwasteItemCard(
-          item: ewasteItems[index],
-          statusColor: _getStatusColor(ewasteItems[index].deliveryStatus),
-          agents: agents,
-          ngos: ngos,
-          userNames: userNames,
-          onAssign: assignAgentAndNgo,
-          onStatusUpdate: updateDeliveryStatus,
-        ),
+  Widget _buildMiniKPI(String label, String value, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(right: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontSize: 12, color: _isDarkMode ? Colors.white70 : Colors.black87)),
+        ],
       ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending': return Colors.redAccent;
-      case 'assigned': return Colors.blue;
-      case 'collected': return Colors.orange;
-      case 'delivered': return Colors.green;
-      default: return Colors.grey;
-    }
+  // --- Tab Contents ---
+
+  Widget _buildDispatchTab(Color cardColor) {
+    final items = ewasteItems.where((i) => 
+      i.itemName.toLowerCase().contains(_searchQuery) ||
+      (userNames[i.userId] ?? '').toLowerCase().contains(_searchQuery)
+    ).toList();
+
+    return Column(
+      children: [
+        _buildSearchBar(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            itemBuilder: (context, index) => _EwasteItemCard(
+              item: items[index],
+              cardColor: cardColor,
+              isDarkMode: _isDarkMode,
+              agents: agents,
+              ngos: ngos,
+              userName: userNames[items[index].userId] ?? 'Unknown User',
+              onAssign: _assignTask,
+              onStatusUpdate: _updateStatus,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildVolunteerRequestsTab() {
-    final pendingApps = volunteerApps.where((a) => a.status == 'pending').toList();
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (pendingApps.isEmpty) return const Center(child: Text('No pending volunteer requests'));
+  Widget _buildGatekeeperTab(Color cardColor) {
+    final pending = volunteerApps.where((a) => a.status == 'pending').toList();
+    if (pending.isEmpty) return _buildEmptyState('No pending volunteer requests');
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: pendingApps.length,
+      itemCount: pending.length,
       itemBuilder: (context, index) {
-        final app = pendingApps[index];
+        final app = pending[index];
         return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          color: cardColor,
+          margin: const EdgeInsets.only(bottom: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(app.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    if (app.agreedToPolicy)
-                      const Chip(label: Text('Policy Signed', style: TextStyle(fontSize: 10, color: Colors.blue)), backgroundColor: Colors.blueAccent),
+                    CircleAvatar(child: Text(app.fullName[0])),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(app.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(DateFormat('MMM d, yyyy').format(app.availableDate), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    if (app.agreedToPolicy) const Icon(Icons.verified_user, color: Colors.blue, size: 20),
                   ],
                 ),
-                Text('Available from: ${DateFormat('MMM d, yyyy').format(app.availableDate)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const Divider(height: 24),
-                const Text('Social Work Motivation:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Divider(height: 25),
+                const Text('Motivation:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 Text(app.motivation, style: const TextStyle(fontSize: 13)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 15),
                 Row(
                   children: [
-                    Expanded(child: OutlinedButton(onPressed: () => _handleVolunteerDecision(app, false), child: const Text('REJECT', style: TextStyle(color: Colors.red)))),
-                    const SizedBox(width: 12),
-                    Expanded(child: FilledButton(onPressed: () => _handleVolunteerDecision(app, true), style: FilledButton.styleFrom(backgroundColor: Colors.green), child: const Text('APPROVE'))),
+                    Expanded(child: OutlinedButton(onPressed: () => _handleAppDecision(app, false), child: const Text('Reject'))),
+                    const SizedBox(width: 10),
+                    Expanded(child: FilledButton(onPressed: () => _handleAppDecision(app, true), child: const Text('Approve'))),
                   ],
-                ),
+                )
               ],
             ),
           ),
@@ -286,121 +346,217 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
   }
 
-  Widget _buildActiveVolunteersTab() {
-    final activeAgents = agents.where((a) => a.isActive).toList();
-    if (activeAgents.isEmpty) return const Center(child: Text('No active volunteers/agents found'));
-    
+  Widget _buildLogisticsTab(Color cardColor) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final currentSchedules = allSchedules.where((s) => !s.date.isBefore(today)).toList();
+    currentSchedules.sort((a, b) => a.date.compareTo(b.date));
+
+    if (currentSchedules.isEmpty) return _buildEmptyState('No volunteer schedules found');
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: activeAgents.length,
+      itemCount: currentSchedules.length,
       itemBuilder: (context, index) {
-        final agent = activeAgents[index];
-        return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(agent.name),
-          subtitle: Text('Status: Active Agent'),
-          trailing: const Icon(Icons.verified, color: Colors.green),
+        final schedule = currentSchedules[index];
+        return Card(
+          color: cardColor,
+          margin: const EdgeInsets.only(bottom: 10),
+          child: ListTile(
+            leading: Icon(Icons.calendar_today, color: schedule.isAvailable ? Colors.green : Colors.grey),
+            title: Text(userNames[schedule.volunteerId] ?? 'Volunteer'),
+            subtitle: Text(DateFormat('EEEE, MMM d').format(schedule.date)),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: schedule.isAvailable ? Colors.green.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(schedule.isAvailable ? 'AVAILABLE' : 'BUSY', 
+                style: TextStyle(color: schedule.isAvailable ? Colors.green : Colors.grey, fontWeight: FontWeight.bold, fontSize: 10)),
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildAnalyticsTab() {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    return SingleChildScrollView(
+  Widget _buildDirectoryTab(Color cardColor) {
+    return ListView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildDirectoryHeader('NGO Partners', Icons.business, Colors.blue),
+        ...ngos.map((n) => _buildDirectoryTile(n.name, n.address, cardColor)),
+        const SizedBox(height: 20),
+        _buildDirectoryHeader('Active Agents', Icons.delivery_dining, Colors.green),
+        ...agents.map((a) => _buildDirectoryTile(a.name, a.isActive ? 'Active' : 'Inactive', cardColor)),
+      ],
+    );
+  }
+
+  Widget _buildDirectoryHeader(String title, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
         children: [
-          const Text('Analytics Overview', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildKPI('Total Items', ewasteItems.length.toString(), Icons.inventory, Colors.blue),
-              _buildKPI('Volunteers', agents.length.toString(), Icons.people, Colors.purple),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text('Delivery Distribution', style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(
-            height: 200,
-            child: PieChart(
-              PieChartData(
-                sections: [
-                  PieChartSectionData(value: ewasteItems.where((i) => i.deliveryStatus == 'pending').length.toDouble(), color: Colors.red, radius: 40),
-                  PieChartSectionData(value: ewasteItems.where((i) => i.deliveryStatus == 'delivered').length.toDouble(), color: Colors.green, radius: 40),
-                ],
-              ),
-            ),
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDirectoryTile(String title, String subtitle, Color cardColor) {
+    return Card(
+      color: cardColor,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right, size: 18),
+      ),
+    );
+  }
+
+  Widget _buildPulseTab(Color cardColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          _buildChartCard('E-Waste Status Distribution', _buildPieChart(), cardColor),
+          const SizedBox(height: 20),
+          _buildChartCard('Weekly Contribution Trends', _buildLineChart(), cardColor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartCard(String title, Widget chart, Color cardColor) {
+    return Card(
+      color: cardColor,
+      margin: const EdgeInsets.only(bottom: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20), // FIX: Removed invalid 'padding' from Card and wrapped child in Padding
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 25),
+            SizedBox(height: 200, child: chart),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPieChart() {
+    final pending = ewasteItems.where((i) => i.deliveryStatus == 'pending').length.toDouble();
+    final delivered = ewasteItems.where((i) => i.deliveryStatus == 'delivered').length.toDouble();
+    final transit = ewasteItems.length - pending - delivered;
+
+    return PieChart(
+      PieChartData(
+        sectionsSpace: 5,
+        centerSpaceRadius: 40,
+        sections: [
+          PieChartSectionData(value: pending, color: Colors.orange, title: 'Queue', radius: 50, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+          PieChartSectionData(value: delivered, color: Colors.green, title: 'Done', radius: 50, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+          PieChartSectionData(value: transit.toDouble(), color: Colors.blue, title: 'In-Way', radius: 50, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineChart() {
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(show: false),
+        titlesData: FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: const [FlSpot(0, 1), FlSpot(1, 3), FlSpot(2, 2), FlSpot(3, 5), FlSpot(4, 3.5), FlSpot(5, 4), FlSpot(6, 6)],
+            isCurved: true,
+            color: Colors.blueAccent,
+            barWidth: 4,
+            isStrokeCapRound: true,
+            dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(show: true, color: Colors.blueAccent.withOpacity(0.1)),
           ),
         ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Console'),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
-          ),
+  // --- Helpers ---
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search items or contributors...',
+          prefixIcon: const Icon(Icons.search),
+          filled: true,
+          fillColor: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.yellow,
-          tabs: const [
-            Tab(text: 'Queue', icon: Icon(Icons.list_alt)),
-            Tab(text: 'NGOs', icon: Icon(Icons.business)),
-            Tab(text: 'Agents', icon: Icon(Icons.delivery_dining)),
-            Tab(text: 'Requests', icon: Icon(Icons.assignment_ind)),
-            Tab(text: 'Volunteers', icon: Icon(Icons.volunteer_activism)),
-            Tab(text: 'Stats', icon: Icon(Icons.analytics)),
-          ],
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
-        ],
       ),
-      body: TabBarView(
-        controller: _tabController,
+    );
+  }
+
+  Widget _buildEmptyState(String msg) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildEwasteListTab(),
-          const NgoManagementScreen(),
-          const AgentManagementScreen(),
-          _buildVolunteerRequestsTab(),
-          _buildActiveVolunteersTab(),
-          _buildAnalyticsTab(),
+          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.withOpacity(0.5)),
+          const SizedBox(height: 16),
+          Text(msg, style: const TextStyle(color: Colors.grey)),
         ],
       ),
     );
+  }
+
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to exit the Admin Console?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out')),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await AppSupabase.client.auth.signOut();
+      if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
+    }
   }
 }
 
-// -----------------------------------------------------------------------
-// Reusable E-Waste Item Card (Updated with Dropdowns)
-// -----------------------------------------------------------------------
-
 class _EwasteItemCard extends StatefulWidget {
   final EwasteItem item;
-  final Color statusColor;
+  final Color cardColor;
+  final bool isDarkMode;
   final List<PickupAgent> agents;
   final List<Ngo> ngos;
-  final Map<String, String> userNames;
-  final Function(String itemId, String? agentId, String? ngoId) onAssign;
-  final Function(String itemId, String newStatus, String agentId) onStatusUpdate;
+  final String userName;
+  final Function(String, String?, String?) onAssign;
+  final Function(String, String, String) onStatusUpdate;
 
   const _EwasteItemCard({
     required this.item,
-    required this.statusColor,
+    required this.cardColor,
+    required this.isDarkMode,
     required this.agents,
     required this.ngos,
-    required this.userNames,
+    required this.userName,
     required this.onAssign,
     required this.onStatusUpdate,
   });
@@ -410,72 +566,108 @@ class _EwasteItemCard extends StatefulWidget {
 }
 
 class _EwasteItemCardState extends State<_EwasteItemCard> {
-  String? _selectedAgentId;
-  String? _selectedNgoId;
+  String? _tempAgentId;
+  String? _tempNgoId;
 
   @override
   void initState() {
     super.initState();
-    _selectedAgentId = widget.item.assignedAgentId;
-    _selectedNgoId = widget.item.assignedNgoId;
+    _tempAgentId = widget.item.assignedAgentId;
+    _tempNgoId = widget.item.assignedNgoId;
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isPending = widget.item.deliveryStatus == 'pending';
+    final status = widget.item.deliveryStatus;
+    final isPending = status == 'pending';
     
     return Card(
+      color: widget.cardColor,
       margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: ExpansionTile(
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: widget.item.imageUrl.isNotEmpty 
+            ? Image.network(widget.item.imageUrl, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image))
+            : const Icon(Icons.image_not_supported),
+        ),
         title: Text(widget.item.itemName, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('Status: ${widget.item.deliveryStatus.toUpperCase()}', style: TextStyle(color: widget.statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+        subtitle: Text(status.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _getStatusColor(status))),
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('User: ${widget.userNames[widget.item.userId] ?? "Unknown"}'),
-                Text('Location: ${widget.item.location}'),
-                const Divider(),
+                _detail('Contributor', widget.userName),
+                _detail('Location', widget.item.location),
+                const Divider(height: 30),
                 if (isPending) ...[
+                  const Text('Dispatch Assignment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _selectedAgentId == '0' ? null : _selectedAgentId,
-                    decoration: const InputDecoration(labelText: 'Assign Agent'),
+                    value: _tempAgentId == '0' ? null : _tempAgentId,
+                    decoration: const InputDecoration(labelText: 'Select Volunteer'),
                     items: widget.agents.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
-                    onChanged: (v) => setState(() => _selectedAgentId = v),
+                    onChanged: (v) => setState(() => _tempAgentId = v),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: _selectedNgoId == '0' ? null : _selectedNgoId,
-                    decoration: const InputDecoration(labelText: 'Assign NGO'),
+                    value: _tempNgoId == '0' ? null : _tempNgoId,
+                    decoration: const InputDecoration(labelText: 'Select NGO Target'),
                     items: widget.ngos.map((n) => DropdownMenuItem(value: n.id, child: Text(n.name))).toList(),
-                    onChanged: (v) => setState(() => _selectedNgoId = v),
+                    onChanged: (v) => setState(() => _tempNgoId = v),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 15),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: (_selectedAgentId == null || _selectedNgoId == null) 
+                      onPressed: (_tempAgentId == null || _tempNgoId == null) 
                         ? null 
-                        : () => widget.onAssign(widget.item.id, _selectedAgentId, _selectedNgoId),
-                      child: const Text('CONFIRM ASSIGNMENT'),
+                        : () => widget.onAssign(widget.item.id, _tempAgentId, _tempNgoId),
+                      child: const Text('Confirm Dispatch'),
                     ),
-                  ),
+                  )
                 ] else ...[
-                   Text('Agent: ${widget.agents.firstWhere((a) => a.id == widget.item.assignedAgentId, orElse: () => PickupAgent.placeholder()).name}'),
-                   Text('NGO: ${widget.ngos.firstWhere((n) => n.id == widget.item.assignedNgoId, orElse: () => Ngo.placeholder()).name}'),
-                   const SizedBox(height: 12),
-                   if (widget.item.deliveryStatus == 'assigned')
-                     SizedBox(width: double.infinity, child: FilledButton(onPressed: () => widget.onStatusUpdate(widget.item.id, 'collected', widget.item.assignedAgentId!), child: const Text('MARK COLLECTED'))),
-                   if (widget.item.deliveryStatus == 'collected')
-                     SizedBox(width: double.infinity, child: FilledButton(onPressed: () => widget.onStatusUpdate(widget.item.id, 'delivered', widget.item.assignedAgentId!), style: FilledButton.styleFrom(backgroundColor: Colors.green), child: const Text('MARK DELIVERED'))),
-                ],
+                  _detail('Assigned Agent', widget.agents.firstWhere((a) => a.id == widget.item.assignedAgentId, orElse: () => PickupAgent.placeholder()).name),
+                  _detail('Target NGO', widget.ngos.firstWhere((n) => n.id == widget.item.assignedNgoId, orElse: () => Ngo.placeholder()).name),
+                  const SizedBox(height: 15),
+                  if (status == 'assigned') 
+                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => widget.onStatusUpdate(widget.item.id, 'collected', widget.item.assignedAgentId!), child: const Text('Confirm Collection'))),
+                  if (status == 'collected') 
+                    SizedBox(width: double.infinity, child: FilledButton(onPressed: () => widget.onStatusUpdate(widget.item.id, 'delivered', widget.item.assignedAgentId!), style: FilledButton.styleFrom(backgroundColor: Colors.green), child: const Text('Confirm Final Delivery'))),
+                ]
               ],
             ),
-          ),
+          )
         ],
       ),
     );
+  }
+
+  Widget _detail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: RichText(
+        text: TextSpan(
+          style: TextStyle(color: widget.isDarkMode ? Colors.white70 : Colors.black87, fontSize: 13),
+          children: [
+            TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+            TextSpan(text: value),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return Colors.orange;
+      case 'assigned': return Colors.blue;
+      case 'collected': return Colors.purple;
+      case 'delivered': return Colors.green;
+      default: return Colors.grey;
+    }
   }
 }

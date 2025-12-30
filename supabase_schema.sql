@@ -181,15 +181,121 @@ CREATE POLICY "Admins can view all applications" ON volunteer_applications
 CREATE POLICY "Admins can update applications" ON volunteer_applications
   FOR UPDATE USING (check_is_admin());
 
+-- Volunteer schedules table for availability management
+CREATE TABLE IF NOT EXISTS volunteer_schedules (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  volunteer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(volunteer_id, date) -- One schedule per volunteer per date
+);
+
+-- Volunteer assignments table for task assignments
+CREATE TABLE IF NOT EXISTS volunteer_assignments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  volunteer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  task_id UUID NOT NULL, -- References ewaste_items.id or other task tables
+  task_type TEXT NOT NULL, -- 'ewaste_pickup', 'cloth_collection', etc.
+  assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  scheduled_date DATE,
+  status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'completed', 'cancelled'
+  notes TEXT,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Notifications table for assignment-related notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT NOT NULL, -- 'assignment_created', 'assignment_updated', 'assignment_due', etc.
+  related_id UUID, -- Can reference assignment_id or other related entities
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on notifications
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies (with CASCADE to handle dependencies)
+DROP POLICY IF EXISTS "Users can view own notifications" ON notifications CASCADE;
+DROP POLICY IF EXISTS "Users can update own notifications" ON notifications CASCADE;
+DROP POLICY IF EXISTS "Admins can insert notifications" ON notifications CASCADE;
+
+-- Policies for notifications
+CREATE POLICY "Users can view own notifications" ON notifications
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
+
+CREATE POLICY "Users can update own notifications" ON notifications
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
+
+CREATE POLICY "Admins can insert notifications" ON notifications
+  FOR INSERT WITH CHECK (check_is_admin());
+
+-- Enable RLS on volunteer_schedules
+ALTER TABLE volunteer_schedules ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Volunteers can view own schedules" ON volunteer_schedules;
+DROP POLICY IF EXISTS "Volunteers can insert own schedules" ON volunteer_schedules;
+DROP POLICY IF EXISTS "Volunteers can update own schedules" ON volunteer_schedules;
+DROP POLICY IF EXISTS "Admins can view all schedules" ON volunteer_schedules;
+
+-- Policies for volunteer_schedules
+CREATE POLICY "Volunteers can view own schedules" ON volunteer_schedules
+  FOR SELECT USING ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Volunteers can insert own schedules" ON volunteer_schedules
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Volunteers can update own schedules" ON volunteer_schedules
+  FOR UPDATE USING ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Admins can view all schedules" ON volunteer_schedules
+  FOR SELECT USING (check_is_admin());
+
+-- Enable RLS on volunteer_assignments
+ALTER TABLE volunteer_assignments ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Volunteers can view own assignments" ON volunteer_assignments;
+DROP POLICY IF EXISTS "Volunteers can update own assignments" ON volunteer_assignments;
+DROP POLICY IF EXISTS "Admins can view all assignments" ON volunteer_assignments;
+DROP POLICY IF EXISTS "Admins can insert assignments" ON volunteer_assignments;
+DROP POLICY IF EXISTS "Admins can update assignments" ON volunteer_assignments;
+
+-- Policies for volunteer_assignments
+CREATE POLICY "Volunteers can view own assignments" ON volunteer_assignments
+  FOR SELECT USING ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Volunteers can update own assignments" ON volunteer_assignments
+  FOR UPDATE USING ((SELECT auth.uid()) = volunteer_id);
+
+CREATE POLICY "Admins can view all assignments" ON volunteer_assignments
+  FOR SELECT USING (check_is_admin());
+
+CREATE POLICY "Admins can insert assignments" ON volunteer_assignments
+  FOR INSERT WITH CHECK (check_is_admin());
+
+CREATE POLICY "Admins can update assignments" ON volunteer_assignments
+  FOR UPDATE USING (check_is_admin());
+
 -- Enable RLS on ewaste_items
 ALTER TABLE ewaste_items ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies
-DROP POLICY IF EXISTS "Users can view own ewaste items" ON ewaste_items;
-DROP POLICY IF EXISTS "Users can insert own ewaste items" ON ewaste_items;
-DROP POLICY IF EXISTS "Users can update own ewaste items" ON ewaste_items;
-DROP POLICY IF EXISTS "Agents can view assigned items" ON ewaste_items;
-DROP POLICY IF EXISTS "Admins can view all ewaste items" ON ewaste_items;
+-- Drop existing policies (with CASCADE to handle dependencies)
+DROP POLICY IF EXISTS "Users can view own ewaste items" ON ewaste_items CASCADE;
+DROP POLICY IF EXISTS "Users can insert own ewaste items" ON ewaste_items CASCADE;
+DROP POLICY IF EXISTS "Users can update own ewaste items" ON ewaste_items CASCADE;
+DROP POLICY IF EXISTS "Agents can view assigned items" ON ewaste_items CASCADE;
+DROP POLICY IF EXISTS "Admins can view all ewaste items" ON ewaste_items CASCADE;
+DROP POLICY IF EXISTS "Admins can update all ewaste items" ON ewaste_items CASCADE;
 
 -- Policies for ewaste_items
 CREATE POLICY "Users can view own ewaste items" ON ewaste_items

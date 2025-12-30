@@ -4,7 +4,7 @@ import 'package:EcoCycle/screens/home_screen.dart';
 import 'package:EcoCycle/screens/map_screen.dart';
 import 'package:EcoCycle/screens/rewards_screen.dart';
 import 'package:EcoCycle/screens/settings_screen.dart';
-import 'package:EcoCycle/screens/agent_dashboard.dart';
+import 'package:EcoCycle/screens/volunteer_dashboard.dart';
 import 'package:EcoCycle/screens/admin_dashboard.dart';
 import 'package:EcoCycle/core/supabase_config.dart';
 import 'package:EcoCycle/services/profile_service.dart';
@@ -86,8 +86,8 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     // 2. ROUTE AGENT/VOLUNTEER
-    if (_userRole == 'agent') {
-      return const AgentDashboard();
+    if (_userRole == 'agent' || _userRole == 'volunteer') {
+      return const VolunteerDashboard();
     }
 
     // 3. STANDARD USER NAVIGATION

@@ -79,5 +79,6 @@
   "recycled": "Recycled",
   "tracking_notes": "Tracking Notes",
   "error_occurred": "An error occurred. Please try again.",
-  "fetch_error": "Failed to load data. Please check your connection."
+  "fetch_error": "Failed to load data. Please check your connection.",
+  "volunteer_dashboard_title": "Volunteer Dashboard"
 }
