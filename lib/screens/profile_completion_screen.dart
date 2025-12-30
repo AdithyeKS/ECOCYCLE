@@ -72,6 +72,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
             _phoneController.text;
         // Age assignment removed
         _addressController.text = existingProfile['address']?.toString() ?? '';
+
+        // existing role is managed by admin; client doesn't set role
       }
     } catch (e) {
       debugPrint('Error loading existing profile: $e');
@@ -87,7 +89,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     setState(() => _isSaving = true);
 
     try {
-      // Data to insert/update in the 'profiles' table
+      // Data to insert/update in the 'profiles' table (role is managed by admin)
       final Map<String, dynamic> profileData = {
         'id': _userId!,
         'full_name': _nameController.text.trim(),
@@ -209,6 +211,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
                           ? tr('required_field')
                           : null,
                     ),
+                    const SizedBox(height: 24),
+
                     const SizedBox(height: 32),
 
                     FilledButton.icon(
