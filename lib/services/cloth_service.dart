@@ -12,17 +12,17 @@ class ClothService {
   Future<String> uploadImage(Uint8List fileBytes, String mimeType) async {
     final filename = 'cl_${DateTime.now().millisecondsSinceEpoch}.png';
     final path = 'uploads/$filename';
-    
+
     // Upload the bytes directly
     await supabase.storage.from(bucket).uploadBinary(
-      path, 
-      fileBytes,
-      fileOptions: FileOptions(
-        contentType: mimeType, 
-        cacheControl: '3600',
-      ),
-    );
-    
+          path,
+          fileBytes,
+          fileOptions: FileOptions(
+            contentType: mimeType,
+            cacheControl: '3600',
+          ),
+        );
+
     // Get the public URL for display and database storage
     return supabase.storage.from(bucket).getPublicUrl(path);
   }
@@ -39,9 +39,10 @@ class ClothService {
   }) async {
     // Determine acceptance based on your rule (e.g., 80% damage or less accepted)
     final isAcceptable = estimatedDamagePercent <= 80;
-    
+
     // Assign status based on acceptance (Can be manually reviewed later by admin)
-    final initialStatus = isAcceptable ? 'Pending Review' : 'Rejected (High Damage)';
+    final initialStatus =
+        isAcceptable ? 'Pending Review' : 'Rejected (High Damage)';
 
     await supabase.from('cloth_donations').insert({
       'user_id': userId,
@@ -62,7 +63,21 @@ class ClothService {
         .select()
         .eq('user_id', userId)
         .order('created_at', ascending: false);
-        
+
+    return (data as List).map((e) => ClothItem.fromJson(e)).toList();
+  }
+
+  // Fetches all cloth donation items (for current user)
+  Future<List<ClothItem>> fetchAll() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return [];
+
+    final data = await supabase
+        .from('cloth_donations')
+        .select()
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false);
+
     return (data as List).map((e) => ClothItem.fromJson(e)).toList();
   }
 
@@ -70,7 +85,6 @@ class ClothService {
   Future<void> updateStatus(int itemId, String newStatus) async {
     await supabase
         .from('cloth_donations')
-        .update({'status': newStatus})
-        .eq('id', itemId);
+        .update({'status': newStatus}).eq('id', itemId);
   }
 }

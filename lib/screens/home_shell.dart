@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:EcoCycle/screens/home_screen.dart';
-import 'package:EcoCycle/screens/map_screen.dart';
+import 'package:EcoCycle/screens/tracking_screen.dart';
 import 'package:EcoCycle/screens/rewards_screen.dart';
-import 'package:EcoCycle/screens/settings_screen.dart';
 import 'package:EcoCycle/screens/volunteer_dashboard.dart';
 import 'package:EcoCycle/screens/admin_dashboard.dart';
 import 'package:EcoCycle/core/supabase_config.dart';
@@ -18,7 +17,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  int _currentIndex = 0;
+  int _currentIndex = 1; // Start with Home selected
   String? _userRole;
   bool _isLoadingRole = true;
   final _profileService = ProfileService();
@@ -30,10 +29,9 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     _loadUserRole();
     _userScreens = [
+      const TrackingScreen(),
       HomeScreen(toggleTheme: widget.toggleTheme),
-      const MapScreen(),
       const RewardsScreen(),
-      SettingsScreen(toggleTheme: widget.toggleTheme),
     ];
   }
 
@@ -101,20 +99,16 @@ class _HomeShellState extends State<HomeShell> {
         unselectedItemColor: Colors.grey,
         items: [
           BottomNavigationBarItem(
+            icon: const Icon(Icons.track_changes),
+            label: tr('tracking'),
+          ),
+          BottomNavigationBarItem(
             icon: const Icon(Icons.home),
             label: tr('home'),
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.map_outlined),
-            label: tr('map'),
-          ),
-          BottomNavigationBarItem(
             icon: const Icon(Icons.star_outline),
             label: tr('rewards'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.settings),
-            label: tr('settings'),
           ),
         ],
       ),

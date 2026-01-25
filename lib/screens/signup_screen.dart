@@ -15,23 +15,18 @@ class _SignupScreenState extends State<SignupScreen> {
   final _name = TextEditingController();
   final _phone = TextEditingController();
   final _email = TextEditingController();
+  final _address = TextEditingController(); // NEW: Address controller
   final _password = TextEditingController();
   bool _busy = false;
   String? _msg;
-  bool _obscurePassword = true; // State for password visibility
+  bool _obscurePassword = true;
 
-  // Regex for strong password validation: Min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char
+  // Validation Regex
   static final _passwordRegex = RegExp(
     r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+={}|:;<>,.?/~])(?!.*\s).{8,}$',
   );
-
-  // Regex for full name validation: Must start with a capital letter, only contains letters and spaces
   static final _nameRegex = RegExp(r'^[A-Z][a-zA-Z\s]*$');
-
-  // Regex for mobile number validation: Only digits, 8 to 15 length
   static final _phoneRegex = RegExp(r'^\d{8,15}$');
-
-  // Regex for general email validation
   static final _emailRegex =
       RegExp(r'^[a-zA-Z0-Z9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
@@ -49,17 +44,16 @@ class _SignupScreenState extends State<SignupScreen> {
         data: {
           'full_name': _name.text.trim(),
           'phone': _phone.text.trim(),
+          'address': _address.text.trim(), // NEW: Save address to metadata
         },
         emailRedirectTo: null,
       );
 
-      // MODIFIED: Navigate to ProfileCompletionScreen
       if (res.user != null) {
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            // Pass the required toggleTheme function
             builder: (_) => ProfileCompletionScreen(
                 toggleTheme: widget.onThemeToggle ?? () {}),
           ),
@@ -79,7 +73,18 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  // Helper widget to display password requirements
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _address.dispose(); // NEW: Dispose address
+    _password.dispose();
+    super.dispose();
+  }
+
+  // --- UI Helper Methods ---
+
   Widget _buildPasswordRequirement(String requirement, bool isValid) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 8.0),
@@ -103,12 +108,10 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  // Function to check individual password requirements (used for real-time feedback)
   bool _checkPasswordRequirement(String value, RegExp pattern) {
     return pattern.hasMatch(value);
   }
 
-  // Custom Input Decoration for the sleek look
   InputDecoration _customInputDecoration(
       {required String labelText,
       required IconData prefixIcon,
@@ -118,13 +121,11 @@ class _SignupScreenState extends State<SignupScreen> {
       prefixIcon:
           Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context)
-          .cardColor
-          .withOpacity(0.8), // Slightly transparent background
+      fillColor: Theme.of(context).cardColor.withOpacity(0.8),
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none, // Remove border for a cleaner look
+        borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -140,25 +141,13 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   @override
-  void dispose() {
-    _name.dispose();
-    _phone.dispose();
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final passwordText = _password.text;
 
-    // Individual checks for real-time feedback
     final hasMinLength = passwordText.length >= 8;
-    final hasUppercase =
-        _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
-    final hasLowercase =
-        _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
+    final hasUppercase = _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
+    final hasLowercase = _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
     final hasNumber = _checkPasswordRequirement(passwordText, RegExp(r'\d'));
     final hasSpecialChar = _checkPasswordRequirement(
         passwordText, RegExp(r'[!@#$%^&*()_+={}|:;<>,.?/~]'));
@@ -166,7 +155,7 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Gradient Background Layer
+          // Background Gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -180,57 +169,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
           ),
-
-          // 2. Thematic Elements Layer (Simulated E-Waste/Recycling Blobs)
-          // Top Left: Blue blob (suggesting screens/plastic)
-          Positioned(
-            top: -50,
-            left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
-                ],
-              ),
-            ),
-          ),
-          // Bottom Right: Yellow/Orange element (suggesting copper/gold circuits)
-          Positioned(
-            bottom: -30,
-            right: -30,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(50),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.yellow.shade700.withOpacity(0.2),
-                      blurRadius: 30)
-                ],
-              ),
-            ),
-          ),
-          // Center Right: Green element (representing growth/recycling)
-          Positioned(
-            top: 200,
-            right: 10,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.lightGreenAccent.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-          // 3. Main Content Layer (Centered Card)
+          // Content
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
@@ -252,14 +191,12 @@ class _SignupScreenState extends State<SignupScreen> {
                           Center(
                             child: Column(
                               children: [
-                                Image.asset('assets/images/ecocycle.png',
-                                    height: 80),
+                                Image.asset('assets/images/ecocycle.png', height: 80),
                                 const SizedBox(height: 16),
                                 Text('Create Account',
-                                    style: theme.textTheme.headlineMedium
-                                        ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: theme.colorScheme.primary)),
+                                    style: theme.textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.primary)),
                                 const SizedBox(height: 8),
                                 Text('Sign up to join our recycling community',
                                     style: theme.textTheme.bodyMedium),
@@ -267,7 +204,6 @@ class _SignupScreenState extends State<SignupScreen> {
                               ],
                             ),
                           ),
-
                           // Full name
                           TextFormField(
                             controller: _name,
@@ -275,17 +211,12 @@ class _SignupScreenState extends State<SignupScreen> {
                                 labelText: 'Full name',
                                 prefixIcon: Icons.person_outline),
                             validator: (v) {
-                              if (v == null || v.trim().length < 3) {
-                                return 'Enter a valid name (min 3 characters)';
-                              }
-                              if (!_nameRegex.hasMatch(v.trim())) {
-                                return 'Name must start with a capital letter and only contain letters/spaces.';
-                              }
+                              if (v == null || v.trim().length < 3) return 'Min 3 characters';
+                              if (!_nameRegex.hasMatch(v.trim())) return 'Capitalize first letter';
                               return null;
                             },
                           ),
                           const SizedBox(height: 16),
-
                           // Mobile number
                           TextFormField(
                             controller: _phone,
@@ -293,145 +224,71 @@ class _SignupScreenState extends State<SignupScreen> {
                                 labelText: 'Mobile number',
                                 prefixIcon: Icons.phone_outlined),
                             keyboardType: TextInputType.phone,
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Mobile number is required';
-                              }
-                              if (!_phoneRegex.hasMatch(v.trim())) {
-                                return 'Enter a valid phone number (8-15 digits only)';
-                              }
-                              return null;
-                            },
+                            validator: (v) => (v == null || !_phoneRegex.hasMatch(v.trim()))
+                                ? 'Enter valid 8-15 digits' : null,
                           ),
                           const SizedBox(height: 16),
-
                           // Email
                           TextFormField(
                             controller: _email,
                             decoration: _customInputDecoration(
                                 labelText: 'Email',
                                 prefixIcon: Icons.email_outlined),
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Email is required';
-                              }
-                              if (!_emailRegex.hasMatch(v.trim())) {
-                                return 'Enter a valid email format';
-                              }
-                              return null;
-                            },
                             keyboardType: TextInputType.emailAddress,
+                            validator: (v) => (v == null || !_emailRegex.hasMatch(v.trim()))
+                                ? 'Enter a valid email' : null,
                           ),
                           const SizedBox(height: 16),
-
+                          // NEW: Address Field
+                          TextFormField(
+                            controller: _address,
+                            maxLines: 2,
+                            decoration: _customInputDecoration(
+                                labelText: 'Residential Address',
+                                prefixIcon: Icons.location_on_outlined),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Address is required' : null,
+                          ),
+                          const SizedBox(height: 16),
                           // Password Field
                           TextFormField(
                             controller: _password,
-                            onChanged: (value) =>
-                                setState(() {}), // Trigger rebuild on change
+                            onChanged: (value) => setState(() {}),
                             decoration: _customInputDecoration(
                               labelText: 'Password',
                               prefixIcon: Icons.lock_outline,
                               suffixIcon: IconButton(
-                                onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword),
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                  color: theme.colorScheme.primary,
-                                ),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
                               ),
                             ),
                             obscureText: _obscurePassword,
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Password is required.';
-                              }
-                              if (!_passwordRegex.hasMatch(v)) {
-                                // Simplified error message for submission failure
-                                return 'Password does not meet all requirements.';
-                              }
-                              return null;
-                            },
+                            validator: (v) => (v == null || !_passwordRegex.hasMatch(v))
+                                ? 'Password requirements not met' : null,
                           ),
-
-                          // Password Requirements List (visible when typing)
-                          const SizedBox(height: 8),
-                          if (passwordText
-                              .isNotEmpty) // Only show when user starts typing
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Recommended security requirements:',
-                                      style: TextStyle(
-                                          color: theme.hintColor,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500)),
-                                  _buildPasswordRequirement(
-                                      'Minimum 8 characters', hasMinLength),
-                                  _buildPasswordRequirement(
-                                      'At least one uppercase letter (A-Z)',
-                                      hasUppercase),
-                                  _buildPasswordRequirement(
-                                      'At least one lowercase letter (a-z)',
-                                      hasLowercase),
-                                  _buildPasswordRequirement(
-                                      'At least one number (0-9)', hasNumber),
-                                  _buildPasswordRequirement(
-                                      'At least one special symbol',
-                                      hasSpecialChar),
-                                ],
-                              ),
-                            ),
-                          // End Password Requirements List
-
-                          const SizedBox(height: 24),
-
-                          if (_msg != null) ...[
-                            Text(_msg!, textAlign: TextAlign.center),
-                            const SizedBox(height: 10),
+                          // Password requirements display...
+                          if (passwordText.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            _buildPasswordRequirement('Min 8 chars', hasMinLength),
+                            _buildPasswordRequirement('One Uppercase', hasUppercase),
+                            _buildPasswordRequirement('One Number', hasNumber),
+                            _buildPasswordRequirement('One Special Symbol', hasSpecialChar),
                           ],
-
-                          // Sign Up Button
+                          const SizedBox(height: 24),
+                          if (_msg != null)
+                            Text(_msg!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
                           FilledButton(
                             onPressed: _busy ? null : _signup,
                             style: FilledButton.styleFrom(
-                                backgroundColor: theme.colorScheme.primary,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12))),
+                                padding: const EdgeInsets.symmetric(vertical: 16)),
                             child: _busy
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: Colors.white))
-                                : const Text('Sign up',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16)),
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : const Text('Sign up', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
-
                           const SizedBox(height: 16),
-                          // Back to Login Button
                           OutlinedButton(
-                            onPressed:
-                                _busy ? null : () => Navigator.pop(context),
-                            style: OutlinedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                side: BorderSide(
-                                    color: theme.colorScheme.primary),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12))),
-                            child: Text('Already have an account?',
-                                style: TextStyle(
-                                    color: theme.colorScheme.primary,
-                                    fontSize: 16)),
+                            onPressed: _busy ? null : () => Navigator.pop(context),
+                            child: const Text('Already have an account?'),
                           ),
                         ],
                       ),

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:intl/intl.dart';
 import '../models/ewaste_item.dart';
 import '../models/volunteer_schedule.dart';
 import '../models/volunteer_assignment.dart';
+import '../models/volunteer_application.dart';
 import '../services/ewaste_service.dart';
 import '../services/volunteer_schedule_service.dart';
+import '../services/profile_service.dart';
 import '../core/supabase_config.dart';
 import 'login_screen.dart';
 
@@ -20,12 +21,17 @@ class VolunteerDashboard extends StatefulWidget {
 class _VolunteerDashboardState extends State<VolunteerDashboard> {
   final _ewasteService = EwasteService();
   final _scheduleService = VolunteerScheduleService();
+  final _profileService = ProfileService();
   List<EwasteItem> _assignedItems = [];
   List<VolunteerSchedule> _schedules = [];
   List<VolunteerAssignment> _assignments = [];
+  List<VolunteerApplication> _applications = [];
+  List<VolunteerSchedule> _allSchedules = [];
+  Map<String, String> _userNames = {};
   bool _isLoading = true;
   bool _isScheduleLoading = false;
   String? _agentId;
+  String _userRole = 'user';
 
   // Calendar state
   CalendarFormat _calendarFormat = CalendarFormat.month;
@@ -38,13 +44,30 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     _initializeAgent();
   }
 
-  void _initializeAgent() {
+  void _initializeAgent() async {
     final user = AppSupabase.client.auth.currentUser;
     if (user != null) {
       _agentId = user.id;
+      try {
+        final profile = await _profileService.fetchProfile(user.id);
+        if (profile != null) {
+          _userRole = profile['user_role']?.toString() ?? 'user';
+        }
+      } catch (e) {
+        debugPrint('Error fetching user role: $e');
+        _userRole = 'user';
+      }
+
       _fetchAssignedItems();
       _fetchSchedules();
       _fetchAssignments();
+
+      // Fetch admin data if user is admin
+      if (_userRole == 'admin') {
+        _fetchAllSchedules();
+        _fetchApplications();
+        _fetchUserNames();
+      }
     } else {
       setState(() {
         _isLoading = false;
@@ -233,55 +256,108 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(tr('volunteer_dashboard_title')),
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+    if (_userRole == 'admin') {
+      return DefaultTabController(
+        length: 4,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Volunteer Management'),
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+                ),
               ),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  _fetchAllSchedules();
+                  _fetchApplications();
+                  _fetchUserNames();
+                },
+                tooltip: tr('refresh'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                onPressed: _logout,
+                tooltip: 'Sign Out',
+              ),
+            ],
+            bottom: const TabBar(
+              tabs: [
+                Tab(icon: Icon(Icons.dashboard), text: 'Overview'),
+                Tab(icon: Icon(Icons.person_add), text: 'Applications'),
+                Tab(icon: Icon(Icons.calendar_view_month), text: 'Schedules'),
+                Tab(icon: Icon(Icons.assignment), text: 'Assignments'),
+              ],
+            ),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                _fetchAssignedItems();
-                _fetchSchedules();
-                _fetchAssignments();
-              },
-              tooltip: tr('refresh'),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white),
-              onPressed: _logout,
-              tooltip: 'Sign Out',
-            ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.calendar_today), text: 'Schedule'),
-              Tab(icon: Icon(Icons.assignment), text: 'Assignments'),
-              Tab(icon: Icon(Icons.task), text: 'Tasks'),
+          body: TabBarView(
+            children: [
+              _buildAdminOverviewTab(),
+              _buildAdminApplicationsTab(),
+              _buildAdminSchedulesTab(),
+              _buildAdminAssignmentsTab(),
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildScheduleTab(),
-            _buildAssignmentsTab(),
-            _buildTasksTab(),
-          ],
+      );
+    } else {
+      // Regular user/volunteer view
+      return DefaultTabController(
+        length: 3,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(tr('volunteer_dashboard_title')),
+            flexibleSpace: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  _fetchAssignedItems();
+                  _fetchSchedules();
+                  _fetchAssignments();
+                },
+                tooltip: tr('refresh'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                onPressed: _logout,
+                tooltip: 'Sign Out',
+              ),
+            ],
+            bottom: const TabBar(
+              tabs: [
+                Tab(icon: Icon(Icons.calendar_today), text: 'Schedule'),
+                Tab(icon: Icon(Icons.assignment), text: 'Assignments'),
+                Tab(icon: Icon(Icons.task), text: 'Tasks'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            children: [
+              _buildScheduleTab(),
+              _buildAssignmentsTab(),
+              _buildTasksTab(),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   Widget _calendarCellBuilder(DateTime day, DateTime today,
-      {bool isSelected = false, bool isToday = false, bool isDisabled = false}) {
+      {bool isSelected = false,
+      bool isToday = false,
+      bool isDisabled = false}) {
     // Look for any schedule record for this day using normalized comparison
     final schedule = _schedules.firstWhere(
       (s) => isSameDay(s.date, day),
@@ -295,7 +371,8 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     );
 
     // strictly check if the user is marked available and has a valid ID
-    final bool isMarkedAvailable = schedule.id.isNotEmpty && schedule.isAvailable;
+    final bool isMarkedAvailable =
+        schedule.id.isNotEmpty && schedule.isAvailable;
 
     return Container(
       margin: const EdgeInsets.all(4),
@@ -676,7 +753,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
                           ),
                         ],
                       ),
-                        ),
+                    ),
                   ],
                 ),
                 const Divider(height: 24),
@@ -765,7 +842,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
   void _showAvailabilityDialog(DateTime date) {
     // Normalizing date for lookup
     final normalizedDate = _normalizeDate(date);
-    
+
     final schedule = _schedules.firstWhere(
       (s) => isSameDay(s.date, normalizedDate),
       orElse: () => VolunteerSchedule(
@@ -786,7 +863,8 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Would you like to mark yourself as available for delivery on this date?'),
+            const Text(
+                'Would you like to mark yourself as available for delivery on this date?'),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -860,26 +938,27 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
 
   Future<void> _clearAvailabilityByDate(DateTime date) async {
     Navigator.pop(context);
-    
+
     // OPTIMISTIC UPDATE: Clear locally immediately so the green goes away instantly
     setState(() {
       _schedules.removeWhere((s) => isSameDay(s.date, date));
-      _selectedDay = null; 
+      _selectedDay = null;
       _isScheduleLoading = true;
     });
 
     try {
       // 1. Identify all schedule records for this specific date from our previous state
       // (Using a copy to avoid concurrent modification issues if needed)
-      final schedulesToRemove = _schedules.where((s) => isSameDay(s.date, date)).toList();
-      
+      final schedulesToRemove =
+          _schedules.where((s) => isSameDay(s.date, date)).toList();
+
       // 2. Perform remote deletions
       for (var s in schedulesToRemove) {
         if (s.id.isNotEmpty) {
           await _scheduleService.deleteVolunteerSchedule(s.id);
         }
       }
-      
+
       // 3. Briefly wait for Supabase synchronization to ensure admin sees it as Unset
       await Future.delayed(const Duration(milliseconds: 600));
 
@@ -917,6 +996,364 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  Future<void> _fetchAllSchedules() async {
+    try {
+      final schedules = await _scheduleService.fetchAllSchedules();
+      setState(() => _allSchedules = schedules);
+    } catch (e) {
+      _showSnackbar('Error loading all schedules: $e');
+    }
+  }
+
+  Future<void> _fetchApplications() async {
+    try {
+      final apps = await _profileService.fetchAllApplications();
+      setState(() => _applications = apps);
+    } catch (e) {
+      _showSnackbar('Error loading applications: $e');
+    }
+  }
+
+  Future<void> _fetchUserNames() async {
+    try {
+      final profiles = await _profileService.fetchAllProfiles();
+      final Map<String, String> namesMap = {};
+      for (final profile in profiles) {
+        namesMap[profile['id'] as String] = profile['full_name'] as String;
+      }
+      setState(() => _userNames = namesMap);
+    } catch (e) {
+      _showSnackbar('Error loading user names: $e');
+    }
+  }
+
+  Widget _buildAdminOverviewTab() {
+    final pendingApps =
+        _applications.where((a) => a.status == 'pending').length;
+    final totalVolunteers = _userNames.length;
+    final availableToday = _allSchedules
+        .where((s) => s.isAvailable && isSameDay(s.date, DateTime.now()))
+        .length;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Volunteer Management Overview',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  'Pending Applications',
+                  pendingApps.toString(),
+                  Icons.person_add,
+                  Colors.orange,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  'Total Volunteers',
+                  totalVolunteers.toString(),
+                  Icons.people,
+                  Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  'Available Today',
+                  availableToday.toString(),
+                  Icons.calendar_today,
+                  Colors.green,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  'Active Assignments',
+                  _allSchedules.length.toString(),
+                  Icons.assignment,
+                  Colors.purple,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: TextStyle(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminApplicationsTab() {
+    final pendingApps =
+        _applications.where((a) => a.status == 'pending').toList();
+
+    if (pendingApps.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, size: 64, color: Colors.green),
+            SizedBox(height: 16),
+            Text(
+              'No pending applications',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: pendingApps.length,
+      itemBuilder: (context, index) {
+        final app = pendingApps[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          elevation: 4,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(child: Text(app.fullName[0].toUpperCase())),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            app.fullName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            DateFormat('MMM d, yyyy').format(app.availableDate),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 25),
+                const Text(
+                  'Motivation:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                Text(app.motivation, style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _handleApplicationDecision(app, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text('Reject'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => _handleApplicationDecision(app, true),
+                        child: const Text('Approve'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAdminSchedulesTab() {
+    if (_allSchedules.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.calendar_today, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'No volunteer schedules',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Group schedules by date
+    final groupedSchedules = <DateTime, List<VolunteerSchedule>>{};
+    for (final schedule in _allSchedules) {
+      final date =
+          DateTime(schedule.date.year, schedule.date.month, schedule.date.day);
+      groupedSchedules[date] = (groupedSchedules[date] ?? [])..add(schedule);
+    }
+
+    final sortedDates = groupedSchedules.keys.toList()..sort();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: sortedDates.length,
+      itemBuilder: (context, index) {
+        final date = sortedDates[index];
+        final schedules = groupedSchedules[date]!;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          elevation: 4,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  DateFormat('EEEE, MMM d, yyyy').format(date),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...schedules.map((schedule) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            schedule.isAvailable
+                                ? Icons.check_circle
+                                : Icons.cancel,
+                            color: schedule.isAvailable
+                                ? Colors.green
+                                : Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _userNames[schedule.volunteerId] ??
+                                  'Unknown Volunteer',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: schedule.isAvailable
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              schedule.isAvailable
+                                  ? 'Available'
+                                  : 'Unavailable',
+                              style: TextStyle(
+                                color: schedule.isAvailable
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAdminAssignmentsTab() {
+    // For admin, show all assignments across all volunteers
+    // This would require fetching all assignments, but for now show a placeholder
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.assignment, size: 64, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'Assignments management coming soon',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleApplicationDecision(
+      VolunteerApplication app, bool approve) async {
+    try {
+      await _profileService.decideOnApplication(app.id, app.userId, approve);
+      await _fetchApplications();
+      _showSnackbar(approve ? 'Application approved' : 'Application rejected');
+    } catch (e) {
+      _showSnackbar('Error processing application: $e');
     }
   }
 }

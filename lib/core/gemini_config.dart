@@ -1,6 +1,6 @@
 class GeminiConfig {
   // 👇 Your Gemini API key
-  static const String apiKey = 'AIzaSyC8bEq71V1bg0ouvz3ugdaTTuKefLPLRs4';
+  static const String apiKey = 'AIzaSyB_wg2sH_ibW5Vzp_as2lqUb3PlEBYcDGY';
 
   // Optional: Add other Gemini-related configurations here
   // static const String model = 'gemini-pro';

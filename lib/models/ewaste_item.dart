@@ -51,8 +51,7 @@ class EwasteItem {
         description: json['description'] ?? '',
         location: json['location'] ?? '',
         status: json['status'] ?? 'Pending',
-        // FIX: Supabase field is 'photo_url'. Model fallback to 'image_url' for safety.
-        imageUrl: json['photo_url'] ?? json['image_url'] ?? '',
+        imageUrl: json['image_url'] ?? '',
         assignedTo: json['assigned_to'],
         createdAt:
             DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),

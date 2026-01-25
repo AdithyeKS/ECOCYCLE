@@ -1,24 +1,25 @@
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data'; 
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:geolocator/geolocator.dart'; 
-import 'package:http/http.dart' as http; 
-import 'package:mime/mime.dart'; 
-import 'package:supabase_flutter/supabase_flutter.dart'; 
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ewaste_category.dart';
 import '../services/ewaste_service.dart';
 
 // ---------------------------------------------------------------------------------------
 // ⭐ ACTION REQUIRED: PASTE YOUR GOOGLE GEMINI API KEY HERE ⭐
 // ---------------------------------------------------------------------------------------
-const String _GEMINI_API_KEY = "AIzaSyC8bEq71V1bg0ouvz3ugdaTTuKefLPLRs4"; 
+const String _GEMINI_API_KEY = "AIzaSyB_wg2sH_ibW5Vzp_as2lqUb3PlEBYcDGY";
 // ---------------------------------------------------------------------------------------
 
 const String _GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-const String _REVERSE_GEOCODING_URL = 'https://nominatim.openstreetmap.org/reverse?format=json&lat={LAT}&lon={LON}&zoom=18&addressdetails=1';
+const String _REVERSE_GEOCODING_URL =
+    'https://nominatim.openstreetmap.org/reverse?format=json&lat={LAT}&lon={LON}&zoom=18&addressdetails=1';
 
 class AddEwasteScreen extends StatefulWidget {
   const AddEwasteScreen({super.key});
@@ -29,7 +30,7 @@ class AddEwasteScreen extends StatefulWidget {
 
 class _AddEwasteScreenState extends State<AddEwasteScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _selectedCategoryId = 'tv'; 
+  String _selectedCategoryId = '1';
   File? _imageFile; // For display purposes only
   XFile? _pickedXFile; // Holds the image source file
   bool _isLoading = false;
@@ -67,20 +68,21 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     _locationController.dispose();
     super.dispose();
   }
-  
+
   // NEW FUNCTION: Calculates and updates points based on the category ID
   void _updateEstimatedPoints(String categoryId) {
     if (categoryId.toUpperCase() == 'NON_EWASTE') {
       setState(() => _estimatedPoints = 0);
       return;
     }
-    
+
     // Calls the now-public method in EwasteService
     try {
-        final points = _ewasteService.calculatePointsForCategory(categoryId); 
-        setState(() => _estimatedPoints = points);
+      final points = _ewasteService.calculatePointsForCategory(categoryId);
+      setState(() => _estimatedPoints = points);
     } catch (_) {
-        setState(() => _estimatedPoints = 50); // Default low estimate if calculation fails
+      setState(() =>
+          _estimatedPoints = 50); // Default low estimate if calculation fails
     }
   }
 
@@ -89,8 +91,8 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
   // ------------------------------------------
 
   Future<void> _getCurrentLocation() async {
-    if (_isLoading) return; 
-    
+    if (_isLoading) return;
+
     setState(() {
       _isLoading = true;
       _locationController.text = 'Fetching location...';
@@ -112,7 +114,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      
+
       final lat = position.latitude;
       final lon = position.longitude;
 
@@ -120,9 +122,8 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
           .replaceFirst('{LAT}', lat.toString())
           .replaceFirst('{LON}', lon.toString());
 
-      final response = await http.get(Uri.parse(url), 
-        headers: {'User-Agent': 'EcoCycleApp/1.0'} 
-      );
+      final response = await http
+          .get(Uri.parse(url), headers: {'User-Agent': 'EcoCycleApp/1.0'});
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -131,7 +132,6 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       } else {
         throw Exception('Failed to get address: ${response.statusCode}');
       }
-
     } catch (e) {
       debugPrint('Geolocation Error: $e');
       if (mounted) {
@@ -159,17 +159,18 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
 
     try {
       if (_GEMINI_API_KEY.isEmpty) {
-        throw Exception('Gemini API Key is not set. Please update the key in the code.');
+        throw Exception(
+            'Gemini API Key is not set. Please update the key in the code.');
       }
-      
+
       final Uint8List bytes = await xFile.readAsBytes();
       final base64Image = base64Encode(bytes);
       final mimeType = lookupMimeType(xFile.path) ?? 'image/jpeg';
-      
+
       // FIX 1: Enhanced prompt to strictly enforce e-waste check
       final validCategories = ewasteCategories.map((c) => c.id).toList();
-      validCategories.add("NON_EWASTE"); 
-      
+      validCategories.add("NON_EWASTE");
+
       final userQuery = """
       Analyze this image. 
       1. Determine if the item is E-WASTE (electronic waste). 
@@ -179,24 +180,22 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       Respond ONLY with a JSON object. The JSON structure is: 
       {"item_name":"[Concise Name]", "description":"[2-3 sentence description and material notes]", "category_id":"[Suggested ID or NON_EWASTE]"}
       """;
-      
-      final apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/$_GEMINI_MODEL:generateContent?key=$_GEMINI_API_KEY";
-      
+
+      final apiUrl =
+          "https://generativelanguage.googleapis.com/v1beta/models/$_GEMINI_MODEL:generateContent?key=$_GEMINI_API_KEY";
+
       final payload = {
         "contents": [
           {
             "parts": [
               {"text": userQuery},
               {
-                "inlineData": {
-                  "mimeType": mimeType,
-                  "data": base64Image
-                }
+                "inlineData": {"mimeType": mimeType, "data": base64Image}
               }
             ]
           }
         ],
-        "generationConfig": { 
+        "generationConfig": {
           "responseMimeType": "application/json",
           "responseSchema": {
             "type": "OBJECT",
@@ -218,39 +217,48 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        final jsonString = result['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final jsonString =
+            result['candidates']?[0]?['content']?['parts']?[0]?['text'];
         final aiData = jsonDecode(jsonString);
 
         if (aiData != null) {
-          final detectedCategoryId = aiData['category_id']?.toString() ?? 'other';
-          
+          final detectedCategoryId =
+              aiData['category_id']?.toString() ?? 'other';
+
           if (detectedCategoryId.toUpperCase() == 'NON_EWASTE') {
-             // Block submission if it's not e-waste
-             setState(() {
-                _titleController.text = aiData['item_name'] ?? 'Not Electronic Waste';
-                _descriptionController.text = aiData['description'] ?? 'Item rejected.';
-                _imageFile = null; // Clear image to prevent accidental submission
-                _selectedCategoryId = 'tv'; // Reset to a default valid category for UI consistency
-                _estimatedPoints = 0; // Ensure points are zeroed
-             });
-             throw Exception("The detected item is not classified as electronic waste. Please try again with a valid electronic item.");
+            // Block submission if it's not e-waste
+            setState(() {
+              _titleController.text =
+                  aiData['item_name'] ?? 'Not Electronic Waste';
+              _descriptionController.text =
+                  aiData['description'] ?? 'Item rejected.';
+              _imageFile = null; // Clear image to prevent accidental submission
+              _selectedCategoryId =
+                  'tv'; // Reset to a default valid category for UI consistency
+              _estimatedPoints = 0; // Ensure points are zeroed
+            });
+            throw Exception(
+                "The detected item is not classified as electronic waste. Please try again with a valid electronic item.");
           }
 
-          final categoryExists = ewasteCategories.any((c) => c.id == detectedCategoryId);
-          
-          setState(() {
-            _titleController.text = aiData['item_name'] ?? 'Unidentified E-Waste';
-            _descriptionController.text = aiData['description'] ?? 'Detailed description needed.';
-            _selectedCategoryId = categoryExists ? detectedCategoryId : 'other';
-            _updateEstimatedPoints(_selectedCategoryId); // NEW: Update estimated points after detection
-          });
+          final categoryExists =
+              ewasteCategories.any((c) => c.id == detectedCategoryId);
 
+          setState(() {
+            _titleController.text =
+                aiData['item_name'] ?? 'Unidentified E-Waste';
+            _descriptionController.text =
+                aiData['description'] ?? 'Detailed description needed.';
+            _selectedCategoryId = categoryExists ? detectedCategoryId : 'other';
+            _updateEstimatedPoints(
+                _selectedCategoryId); // NEW: Update estimated points after detection
+          });
         } else {
           throw Exception('AI analysis failed to return expected JSON.');
         }
-
       } else {
-        throw Exception('Gemini API failed: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'Gemini API failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('AI Detection Error: $e');
@@ -266,9 +274,9 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  
+
   // ------------------------------------------
-  // Image Picking Logic 
+  // Image Picking Logic
   // ------------------------------------------
 
   Future<void> _pickImage() async {
@@ -282,7 +290,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     if (pickedFile != null) {
       setState(() {
         _pickedXFile = pickedFile;
-        _imageFile = File(pickedFile.path); 
+        _imageFile = File(pickedFile.path);
       });
       await _detectItem(pickedFile);
     }
@@ -300,7 +308,8 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     final user = _ewasteService.supabase.auth.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Session expired. Please log in again.')),
+        const SnackBar(
+            content: Text('Error: Session expired. Please log in again.')),
       );
       return;
     }
@@ -312,10 +321,12 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       );
       return;
     }
-    
+
     if (_selectedCategoryId.toUpperCase() == 'NON_EWASTE') {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Submission rejected: Item is not classified as electronic waste.')),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Submission rejected: Item is not classified as electronic waste.')),
       );
       return;
     }
@@ -327,12 +338,13 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       // 1. Prepare platform-agnostic data for upload
       final fileBytes = await _pickedXFile!.readAsBytes();
       final mimeType = lookupMimeType(_pickedXFile!.path) ?? 'image/jpeg';
-      
+
       // 2. Upload File using bytes and mimeType
       try {
         imageUrl = await _ewasteService.uploadImage(fileBytes, mimeType);
       } on StorageException catch (e) {
-        throw Exception('File Upload Failed: Storage Error (${e.statusCode}). Check Supabase bucket setup/policy.');
+        throw Exception(
+            'File Upload Failed: Storage Error (${e.statusCode}). Check Supabase bucket setup/policy.');
       } catch (e) {
         throw Exception('Failed to upload image: ${e.toString()}');
       }
@@ -356,16 +368,15 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
         }
       } on PostgrestException catch (e) {
         debugPrint('❌ POSTGREST (DB) ERROR: ${e.message}');
-        throw Exception('Database Error: ${e.message}. (Check RLS/Foreign Keys)');
+        throw Exception(
+            'Database Error: ${e.message}. (Check RLS/Foreign Keys)');
       }
-
-
     } catch (e) {
       // Show the most relevant error message
-      String errorMessage = e.toString().contains("Exception:") 
+      String errorMessage = e.toString().contains("Exception:")
           ? e.toString().split("Exception:")[1].trim()
           : "Submission failed due to an unexpected error.";
-          
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $errorMessage')),
@@ -385,13 +396,16 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     // Determine which category name to show for the green box
     String currentCategoryName = 'Awaiting Detection...';
     if (_imageFile == null && !_isLoading) {
-       currentCategoryName = 'Capture Photo to Begin';
+      currentCategoryName = 'Capture Photo to Begin';
     } else {
-        try {
-          currentCategoryName = ewasteCategories.firstWhere((c) => c.id == _selectedCategoryId, orElse: () => ewasteCategories.first).name;
-        } catch (_) {
-          currentCategoryName = 'Unknown Category';
-        }
+      try {
+        currentCategoryName = ewasteCategories
+            .firstWhere((c) => c.id == _selectedCategoryId,
+                orElse: () => ewasteCategories.first)
+            .name;
+      } catch (_) {
+        currentCategoryName = 'Unknown Category';
+      }
     }
 
     return Scaffold(
@@ -415,11 +429,16 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
               // 1. Image Capture/Detection Area
               // ------------------------------------------
               Text('Step 1: Capture & Analyze',
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge!
+                      .copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('Take a clear photo of your item to automatically detect its type and material composition.', style: TextStyle(color: Colors.grey)),
+              const Text(
+                  'Take a clear photo of your item to automatically detect its type and material composition.',
+                  style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 16),
-              
+
               _inputCard(
                 child: GestureDetector(
                   onTap: _isLoading ? null : _pickImage,
@@ -427,7 +446,11 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                     width: double.infinity,
                     height: 200,
                     decoration: BoxDecoration(
-                      color: _imageFile == null ? Theme.of(context).colorScheme.surfaceContainerHighest : null,
+                      color: _imageFile == null
+                          ? Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                          : null,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: Theme.of(context).dividerColor,
@@ -447,10 +470,14 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                               Icon(
                                 Icons.camera_alt,
                                 size: 56,
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.6),
                               ),
                               const SizedBox(height: 12),
-                              const Text('Tap to open camera & analyze', style: TextStyle(fontSize: 16)),
+                              const Text('Tap to open camera & analyze',
+                                  style: TextStyle(fontSize: 16)),
                             ],
                           )
                         : Stack(
@@ -460,10 +487,12 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                                 top: 8,
                                 right: 8,
                                 child: IconButton(
-                                  onPressed: () => setState(() => _imageFile = null),
+                                  onPressed: () =>
+                                      setState(() => _imageFile = null),
                                   icon: const Icon(Icons.close),
                                   style: IconButton.styleFrom(
-                                    backgroundColor: Colors.black.withOpacity(0.5),
+                                    backgroundColor:
+                                        Colors.black.withOpacity(0.5),
                                     foregroundColor: Colors.white,
                                   ),
                                 ),
@@ -473,11 +502,15 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                                   color: Colors.black.withOpacity(0.5),
                                   child: const Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        CircularProgressIndicator(color: Colors.white),
+                                        CircularProgressIndicator(
+                                            color: Colors.white),
                                         SizedBox(height: 10),
-                                        Text('Analyzing...', style: TextStyle(color: Colors.white)),
+                                        Text('Analyzing...',
+                                            style:
+                                                TextStyle(color: Colors.white)),
                                       ],
                                     ),
                                   ),
@@ -493,18 +526,23 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
               // ------------------------------------------
               const SizedBox(height: 16),
               Text('Step 2: Review Item Details',
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge!
+                      .copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('The details below were automatically detected. You may adjust them if needed.', style: TextStyle(color: Colors.grey)),
+              const Text(
+                  'The details below were automatically detected. You may adjust them if needed.',
+                  style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 16),
-              
+
               _inputCard(
                 child: Column(
                   children: [
                     // Item Name
                     TextFormField(
                       controller: _titleController,
-                      readOnly: _isLoading, 
+                      readOnly: _isLoading,
                       decoration: InputDecoration(
                         labelText: 'Item Title',
                         border: const OutlineInputBorder(),
@@ -518,7 +556,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                     // Description/Features
                     TextFormField(
                       controller: _descriptionController,
-                      readOnly: _isLoading, 
+                      readOnly: _isLoading,
                       maxLines: 3,
                       decoration: InputDecoration(
                         labelText: 'Description & Materials',
@@ -529,10 +567,11 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                           value?.isEmpty == true ? tr('required_field') : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Detected Category Display
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -544,18 +583,21 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                           Expanded(
                             child: Text(
                               'Detected Category: $currentCategoryName',
-                              style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                  color: Colors.green.shade800,
+                                  fontWeight: FontWeight.w500),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 12), // Spacer before points display
 
                     // NEW: Estimated Points Display
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
                         color: Colors.teal.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -567,12 +609,14 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                           const SizedBox(width: 8),
                           Text(
                             // Display message based on state
-                            _estimatedPoints > 0 
-                              ? 'Estimated EcoPoints: $_estimatedPoints'
-                              : (_imageFile != null && !_isLoading) 
-                                ? 'Points calculated after detection.' 
-                                : 'Take a photo to get estimate.',
-                            style: TextStyle(color: Colors.teal.shade800, fontWeight: FontWeight.w500),
+                            _estimatedPoints > 0
+                                ? 'Estimated EcoPoints: $_estimatedPoints'
+                                : (_imageFile != null && !_isLoading)
+                                    ? 'Points calculated after detection.'
+                                    : 'Take a photo to get estimate.',
+                            style: TextStyle(
+                                color: Colors.teal.shade800,
+                                fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -581,15 +625,20 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                   ],
                 ),
               ),
-              
+
               // ------------------------------------------
               // 3. Location Input
               // ------------------------------------------
               const SizedBox(height: 16),
               Text('Step 3: Confirm Pickup Location',
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge!
+                      .copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('Provide the exact address where the E-Waste will be available for pickup.', style: TextStyle(color: Colors.grey)),
+              const Text(
+                  'Provide the exact address where the E-Waste will be available for pickup.',
+                  style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 16),
 
               _inputCard(
@@ -619,7 +668,8 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   // Disable if loading OR if no image has been picked
-                  onPressed: _isLoading || _imageFile == null ? null : _submitItem,
+                  onPressed:
+                      _isLoading || _imageFile == null ? null : _submitItem,
                   icon: _isLoading
                       ? const SizedBox(
                           width: 20,
@@ -630,11 +680,13 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                       : const Icon(Icons.upload_file),
                   label: Padding(
                     padding: const EdgeInsets.all(12),
-                    child: Text(_isLoading ? 'Processing...' : 'Submit E-Waste', style: const TextStyle(fontSize: 16)),
+                    child: Text(_isLoading ? 'Processing...' : 'Submit E-Waste',
+                        style: const TextStyle(fontSize: 16)),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.green.shade700,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),

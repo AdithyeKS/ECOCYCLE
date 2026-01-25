@@ -117,11 +117,19 @@ class ProfileService {
 
   /// Fetches all profiles for admin management.
   Future<List<Map<String, dynamic>>> fetchAllProfiles() async {
-    final data = await supabase
-        .from('profiles')
-        .select('id, full_name, email, user_role, volunteer_requested_at')
-        .order('full_name', ascending: true);
-    return (data as List).map((e) => e as Map<String, dynamic>).toList();
+    try {
+      final data = await supabase
+          .from('profiles')
+          .select(
+              'id, full_name, email, user_role, volunteer_requested_at, phone_number, address, total_points')
+          .order('full_name', ascending: true);
+      print(
+          '✓ Profiles fetched successfully: ${(data as List).length} profiles');
+      return (data as List).map((e) => e as Map<String, dynamic>).toList();
+    } catch (e) {
+      print('✗ Error fetching profiles: $e');
+      rethrow;
+    }
   }
 
   /// Professional Volunteer Application Submission for Social Work
@@ -217,4 +225,50 @@ class ProfileService {
     final message = 'You earned $points EcoPoints for recycling "$itemName".';
     await sendEmailNotification(userId, subject, message);
   }
+
+  /// Deletes a user account and all associated data
+  Future<void> deleteUser(String userId) async {
+    try {
+      // Delete in order to avoid foreign key constraints
+      // 1. Delete volunteer assignments
+      await supabase
+          .from('volunteer_assignments')
+          .delete()
+          .eq('volunteer_id', userId);
+
+      // 2. Delete volunteer schedules
+      await supabase
+          .from('volunteer_schedules')
+          .delete()
+          .eq('volunteer_id', userId);
+
+      // 3. Delete volunteer applications
+      await supabase
+          .from('volunteer_applications')
+          .delete()
+          .eq('user_id', userId);
+
+      // 4. Delete e-waste items
+      await supabase.from('ewaste_items').delete().eq('user_id', userId);
+
+      // 5. Delete cloth items
+      await supabase.from('cloth_items').delete().eq('user_id', userId);
+
+      // 6. Delete pickup agent entry if exists
+      await supabase.from('pickup_requests').delete().eq('id', userId);
+
+      // 7. Delete notifications
+      await supabase.from('notifications').delete().eq('user_id', userId);
+
+      // 8. Finally delete the profile
+      await supabase.from('profiles').delete().eq('id', userId);
+
+      print('User $userId and all associated data deleted successfully');
+    } catch (e) {
+      print('ERROR deleting user $userId: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetches all volunteer applications (Admin only)
 }

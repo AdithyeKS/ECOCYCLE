@@ -79,11 +79,17 @@ class EwasteService {
 
   /// Fetches all E-waste items (typically for Admin/Agent view).
   Future<List<EwasteItem>> fetchAll() async {
-    final data = await supabase
-        .from('ewaste_items')
-        .select()
-        .order('created_at', ascending: false);
-    return (data as List).map((e) => EwasteItem.fromJson(e)).toList();
+    try {
+      final data = await supabase
+          .from('ewaste_items')
+          .select()
+          .order('created_at', ascending: false);
+      print('✓ E-waste items fetched: ${(data as List).length} items');
+      return (data as List).map((e) => EwasteItem.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching e-waste items: $e');
+      rethrow;
+    }
   }
 
   /// Updates the user-facing status of an E-waste item.
@@ -107,11 +113,17 @@ class EwasteService {
 
   /// Fetches a list of registered NGOs.
   Future<List<Ngo>> fetchNgos() async {
-    final data = await supabase
-        .from('ngos')
-        .select()
-        .order('created_at', ascending: false);
-    return (data as List).map((e) => Ngo.fromJson(e)).toList();
+    try {
+      final data = await supabase
+          .from('ngos')
+          .select()
+          .order('created_at', ascending: false);
+      print('✓ NGOs fetched: ${(data as List).length} NGOs');
+      return (data as List).map((e) => Ngo.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching NGOs: $e');
+      rethrow;
+    }
   }
 
   /// Adds a new NGO profile.
@@ -133,12 +145,18 @@ class EwasteService {
 
   /// Fetches a list of active Pickup Agents.
   Future<List<PickupAgent>> fetchPickupAgents() async {
-    final data = await supabase
-        .from('pickup_requests')
-        .select()
-        .eq('is_active', true)
-        .order('created_at', ascending: false);
-    return (data as List).map((e) => PickupAgent.fromJson(e)).toList();
+    try {
+      print('  → Querying pickup_requests table...');
+      final data = await supabase
+          .from('pickup_requests')
+          .select()
+          .order('created_at', ascending: false);
+      print('✓ Pickup agents fetched: ${(data as List).length} agents');
+      return (data as List).map((e) => PickupAgent.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching pickup agents: $e');
+      rethrow;
+    }
   }
 
   /// Adds a new Pickup Agent profile.

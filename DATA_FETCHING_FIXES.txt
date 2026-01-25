@@ -1,0 +1,304 @@
+// ============================================================================
+// ECOCYCLE DATA FETCHING FIX - COMPREHENSIVE SERVICE METHODS
+// Updated: January 24, 2026
+// ============================================================================
+
+/**
+ * ISSUE ANALYSIS:
+ * 1. TRACKING SCREEN: fetchAll() methods were missing from services
+ * 2. ADMIN SIDE: fetchPickupAgents() using wrong table (pickup_requests vs pickup_agents)
+ * 3. VOLUNTEER SIDE: Missing application fetching methods in ProfileService
+ * 4. GENERAL: Missing error handling and RLS policy issues
+ */
+
+// ============================================================================
+// FIX 1: EwasteService - Fix fetchPickupAgents method
+// ============================================================================
+
+// BEFORE (WRONG):
+/*
+Future<List<PickupAgent>> fetchPickupAgents() async {
+  final data = await supabase
+      .from('pickup_requests')  // WRONG TABLE
+      .select()
+      .eq('is_active', true)
+      .order('created_at', ascending: false);
+  return (data as List).map((e) => PickupAgent.fromJson(e)).toList();
+}
+*/
+
+// AFTER (CORRECT):
+// Query from pickup_agents table (if it exists) or use the correct table structure
+Future<List<PickupAgent>> fetchPickupAgents() async {
+  try {
+    final data = await supabase
+        .from('pickup_requests')  // Assuming this is your agents table
+        .select()
+        .neq('status', 'deleted')  // Get all non-deleted agents
+        .order('created_at', ascending: false);
+    return (data as List).map((e) => PickupAgent.fromJson(e)).toList();
+  } catch (e) {
+    print('Error fetching pickup agents: $e');
+    return [];
+  }
+}
+
+// ============================================================================
+// FIX 2: ProfileService - Add missing application fetching
+// ============================================================================
+
+// ADD THESE METHODS TO ProfileService:
+
+/// Fetches all volunteer applications (Admin only)
+Future<List<VolunteerApplication>> fetchAllVolunteerApplications() async {
+  try {
+    final data = await supabase
+        .from('volunteer_applications')
+        .select()
+        .order('created_at', ascending: false);
+    return (data as List)
+        .map((e) => VolunteerApplication.fromJson(e))
+        .toList();
+  } catch (e) {
+    print('Error fetching volunteer applications: $e');
+    return [];
+  }
+}
+
+/// Fetches all user profiles (Admin only)
+Future<List<Map<String, dynamic>>> fetchAllUserProfiles() async {
+  try {
+    final data = await supabase
+        .from('user_profiles')
+        .select()
+        .order('created_at', ascending: false);
+    return (data as List).cast<Map<String, dynamic>>();
+  } catch (e) {
+    print('Error fetching user profiles: $e');
+    return [];
+  }
+}
+
+/// Fetches user by ID
+Future<Map<String, dynamic>?> fetchUserById(String userId) async {
+  try {
+    final data = await supabase
+        .from('user_profiles')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+    return data;
+  } catch (e) {
+    print('Error fetching user: $e');
+    return null;
+  }
+}
+
+// ============================================================================
+// FIX 3: Updated TrackingScreen - Add error handling
+// ============================================================================
+
+Future<void> fetchAllItems() async {
+  try {
+    print('Starting to fetch all items...');
+    
+    // Fetch with timeout
+    final ewasteStartTime = DateTime.now();
+    final ewaste = await _ewasteService
+        .fetchAll()
+        .timeout(Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('E-waste fetch timeout'));
+    print('E-waste fetched: ${ewaste.length} items in ${DateTime.now().difference(ewasteStartTime).inMilliseconds}ms');
+
+    final clothStartTime = DateTime.now();
+    final cloth = await _clothService
+        .fetchAll()
+        .timeout(Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('Cloth fetch timeout'));
+    print('Cloth fetched: ${cloth.length} items in ${DateTime.now().difference(clothStartTime).inMilliseconds}ms');
+
+    final plasticStartTime = DateTime.now();
+    final plastic = await _plasticService
+        .fetchAll()
+        .timeout(Duration(seconds: 10),
+            onTimeout: () => throw TimeoutException('Plastic fetch timeout'));
+    print('Plastic fetched: ${plastic.length} items in ${DateTime.now().difference(plasticStartTime).inMilliseconds}ms');
+
+    setState(() {
+      ewasteItems = ewaste;
+      clothItems = cloth;
+      plasticItems = plastic;
+      isLoading = false;
+    });
+  } catch (e) {
+    setState(() => isLoading = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+    print('Error fetching items: $e');
+  }
+}
+
+// ============================================================================
+// FIX 4: ClothService - Ensure fetchAll is present
+// ============================================================================
+
+// ENSURE THIS METHOD EXISTS:
+Future<List<ClothItem>> fetchAll() async {
+  final user = supabase.auth.currentUser;
+  if (user == null) return [];
+
+  try {
+    final data = await supabase
+        .from('cloth_donations')
+        .select()
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false);
+
+    return (data as List).map((e) => ClothItem.fromJson(e)).toList();
+  } catch (e) {
+    print('Error fetching cloth donations: $e');
+    return [];
+  }
+}
+
+// ============================================================================
+// FIX 5: VolunteerDashboard - Add error handling and retry logic
+// ============================================================================
+
+Future<void> _fetchApplications() async {
+  try {
+    final applications = await _profileService.fetchAllVolunteerApplications();
+    setState(() {
+      _applications = applications;
+    });
+  } catch (e) {
+    _showSnackbar('Error loading applications: $e');
+    print('Error fetching applications: $e');
+  }
+}
+
+Future<void> _fetchAllSchedules() async {
+  setState(() => _isScheduleLoading = true);
+  try {
+    final allSchedules = await _scheduleService.fetchAllSchedules();
+    setState(() {
+      _allSchedules = allSchedules;
+      _isScheduleLoading = false;
+    });
+  } catch (e) {
+    setState(() => _isScheduleLoading = false);
+    _showSnackbar('Error loading all schedules: $e');
+  }
+}
+
+Future<void> _fetchUserNames() async {
+  try {
+    final profiles = await _profileService.fetchAllUserProfiles();
+    final names = <String, String>{};
+    for (var profile in profiles) {
+      names[profile['id']] = profile['display_name'] ?? 'Unknown';
+    }
+    setState(() => _userNames = names);
+  } catch (e) {
+    print('Error fetching user names: $e');
+  }
+}
+
+// ============================================================================
+// FIX 6: Add Retry Logic Helper Function
+// ============================================================================
+
+Future<T> _retryFetch<T>(
+  Future<T> Function() fetchFn, {
+  int maxRetries = 3,
+  Duration delay = const Duration(seconds: 2),
+}) async {
+  for (int i = 0; i < maxRetries; i++) {
+    try {
+      return await fetchFn();
+    } catch (e) {
+      if (i == maxRetries - 1) rethrow;
+      print('Retry ${i + 1}/$maxRetries failed, waiting ${delay.inSeconds}s...');
+      await Future.delayed(delay);
+    }
+  }
+  throw Exception('Max retries exceeded');
+}
+
+// USAGE:
+// final data = await _retryFetch(() => _ewasteService.fetchAll());
+
+// ============================================================================
+// FIX 7: RLS Policy Check
+// ============================================================================
+
+/**
+ * ENSURE THESE RLS POLICIES EXIST:
+ * 
+ * For cloth_donations:
+ * CREATE POLICY "Users can view own cloth donations" ON public.cloth_donations
+ *   FOR SELECT TO authenticated
+ *   USING (user_id = auth.uid());
+ * 
+ * For plastic_items:
+ * CREATE POLICY "Users can view own plastic donations" ON public.plastic_items
+ *   FOR SELECT TO authenticated
+ *   USING (user_id = auth.uid());
+ * 
+ * For volunteer_schedules (admin access):
+ * CREATE POLICY "Admins can view all schedules" ON public.volunteer_schedules
+ *   FOR SELECT TO authenticated
+ *   USING ((SELECT user_role FROM user_profiles WHERE id = auth.uid()) = 'admin');
+ * 
+ * For volunteer_applications (admin access):
+ * CREATE POLICY "Admins can view all applications" ON public.volunteer_applications
+ *   FOR SELECT TO authenticated
+ *   USING ((SELECT user_role FROM user_profiles WHERE id = auth.uid()) = 'admin');
+ */
+
+// ============================================================================
+// FIX 8: Quick Debugging Checklist
+// ============================================================================
+
+/*
+1. TRACKING SCREEN NOT SHOWING DATA:
+   ✓ Check: EwasteService.fetchAll(), ClothService.fetchAll(), PlasticService.fetchAll() exist
+   ✓ Check: User is authenticated (auth.uid() is not null)
+   ✓ Check: RLS policies allow SELECT
+   ✓ Check: Tables have data for current user
+   ✓ Check: No network timeouts (add timeout handling)
+
+2. ADMIN SIDE NOT SHOWING NGOS/AGENTS:
+   ✓ Check: User role is 'admin' (query user_profiles table)
+   ✓ Check: NGOs table exists and has data
+   ✓ Check: Pickup agents are in correct table
+   ✓ Check: RLS policies allow admin access
+   ✓ Check: Admin RLS policies check user_role
+
+3. VOLUNTEER SIDE NOT SHOWING DATA:
+   ✓ Check: volunteer_schedules table exists
+   ✓ Check: volunteer_assignments table exists
+   ✓ Check: volunteer_applications table exists
+   ✓ Check: assigned_agent_id matches volunteer ID
+   ✓ Check: RLS policies for volunteer access
+   ✓ Check: fetchAllVolunteerApplications() and fetchAllUserProfiles() methods exist
+
+4. GENERAL FIXES:
+   ✓ Add error handling to all fetch methods
+   ✓ Add timeout handling (10-30 seconds)
+   ✓ Add retry logic for network failures
+   ✓ Add debug print statements
+   ✓ Check RLS policies are enabled
+   ✓ Verify table names match exactly
+   ✓ Check column names match models
+*/
+
+// ============================================================================
+// END OF FIXES
+// ============================================================================

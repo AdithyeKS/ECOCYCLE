@@ -5,13 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../services/cloth_service.dart';
 import '../core/supabase_config.dart';
 
 // Assuming GEMINI_API_KEY is available globally or needs to be defined here:
-const String _GEMINI_API_KEY = "AIzaSyC8bEq71V1bg0ouvz3ugdaTTuKefLPLRs4"; 
+const String _GEMINI_API_KEY = "AIzaSyB_wg2sH_ibW5Vzp_as2lqUb3PlEBYcDGY"; 
 const String _GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 
 class AddClothScreen extends StatefulWidget {
