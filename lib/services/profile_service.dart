@@ -119,13 +119,16 @@ class ProfileService {
   Future<List<Map<String, dynamic>>> fetchAllProfiles() async {
     try {
       final data = await supabase
-          .from('profiles')
+          .from('admin_user_details')
           .select(
-              'id, full_name, email, user_role, volunteer_requested_at, phone_number, address, total_points')
+              'id, full_name, user_role, phone_number, address, total_points, created_at, email')
           .order('full_name', ascending: true);
-      print(
-          '✓ Profiles fetched successfully: ${(data as List).length} profiles');
-      return (data as List).map((e) => e as Map<String, dynamic>).toList();
+
+      final List<Map<String, dynamic>> profiles =
+          (data as List).cast<Map<String, dynamic>>();
+
+      print('✓ Profiles fetched successfully: ${profiles.length} profiles');
+      return profiles;
     } catch (e) {
       print('✗ Error fetching profiles: $e');
       rethrow;

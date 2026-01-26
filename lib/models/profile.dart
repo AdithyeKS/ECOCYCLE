@@ -26,7 +26,7 @@ class Profile {
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         fullName: json['full_name'] as String?,
         email: json['email'] as String?,
         phoneNumber: json['phone_number'] as String?,
@@ -35,10 +35,14 @@ class Profile {
         supervisorId: json['supervisor_id'] as String?,
         totalPoints: json['total_points'] as int? ?? 0,
         volunteerRequestedAt: json['volunteer_requested_at'] != null
-            ? DateTime.tryParse(json['volunteer_requested_at'])
+            ? DateTime.tryParse(json['volunteer_requested_at'] as String)
             : null,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'] as String)
+            : DateTime.now(),
+        updatedAt: json['updated_at'] != null
+            ? DateTime.parse(json['updated_at'] as String)
+            : DateTime.now(),
       );
 
   Map<String, dynamic> toJson() => {

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/ewaste_item.dart';
 import '../models/ngo.dart';
 import '../models/pickup_agent.dart';
+import '../models/profile.dart';
 import '../models/volunteer_application.dart';
 import '../models/volunteer_schedule.dart';
 import '../services/ewaste_service.dart';
@@ -84,21 +85,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ], eagerError: false);
 
       final List<EwasteItem> items = results[0] as List<EwasteItem>;
-      final List<Map<String, dynamic>> profiles =
+      final List<Map<String, dynamic>> profileMaps =
           results[3] as List<Map<String, dynamic>>;
       final List<VolunteerApplication> apps =
           results[4] as List<VolunteerApplication>;
 
       print('✓ E-waste items: ${items.length}');
-      print('✓ Profiles: ${profiles.length}');
+      print('✓ Profiles: ${profileMaps.length}');
       print('✓ Volunteer applications: ${apps.length}');
+
+      // Convert maps to Profile objects
+      final List<Profile> profiles =
+          profileMaps.map((map) => Profile.fromJson(map)).toList();
 
       // Create a map for quick name lookups by ID
       final Map<String, String> namesMap = {};
       for (final profile in profiles) {
-        final id = profile['id'] as String?;
-        final fullName = profile['full_name'] as String?;
-        if (id != null && fullName != null) {
+        final id = profile.id;
+        final fullName = profile.fullName;
+        if (id.isNotEmpty && fullName != null) {
           namesMap[id] = fullName;
         }
       }
@@ -116,7 +121,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ngos = results[1] as List<Ngo>;
         agents = results[2] as List<PickupAgent>;
         userNames = namesMap;
-        allProfiles = profiles;
+        allProfiles = profileMaps;
         volunteerApps = apps;
         allSchedules = results[5] as List<VolunteerSchedule>;
         isLoading = false;
@@ -187,7 +192,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   // --- UI Components ---
 
-  @override
   @override
   Widget build(BuildContext context) {
     final bgColor =
@@ -1087,7 +1091,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final fullName = profile['full_name'] as String? ?? 'Unknown';
         final email = profile['email'] as String? ?? '';
         final role = profile['user_role'] as String? ?? 'user';
-        final phone = profile['phone'] as String? ?? '';
+        final phone = profile['phone_number'] as String? ?? '';
         final isAdmin = role == 'admin';
 
         return Card(
@@ -1399,10 +1403,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _detailRow('Name', profile['full_name'] ?? 'N/A'),
-              _detailRow('Email', profile['email'] ?? 'N/A'),
-              _detailRow('Phone', profile['phone'] ?? 'N/A'),
-              _detailRow('Role', _capitalizeFirst(profile['user_role'] ?? 'user')),
+              _detailRow('Name', profile['full_name'] as String? ?? 'N/A'),
+              _detailRow('Email', profile['email'] as String? ?? 'N/A'),
+              _detailRow('Phone', profile['phone_number'] as String? ?? 'N/A'),
+              _detailRow('Role',
+                  _capitalizeFirst(profile['user_role'] as String? ?? 'user')),
               _detailRow(
                   'Created',
                   profile['created_at'] != null
