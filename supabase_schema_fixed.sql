@@ -130,6 +130,13 @@ CREATE TABLE IF NOT EXISTS volunteer_applications (
 -- Enable RLS on volunteer_applications
 ALTER TABLE volunteer_applications ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own applications" ON volunteer_applications;
+DROP POLICY IF EXISTS "Users can insert own applications" ON volunteer_applications;
+DROP POLICY IF EXISTS "Users can update own applications" ON volunteer_applications;
+DROP POLICY IF EXISTS "Admins can view all applications" ON volunteer_applications;
+DROP POLICY IF EXISTS "Admins can update applications" ON volunteer_applications;
+
 -- Policies for volunteer_applications
 CREATE POLICY "Users can view own applications" ON volunteer_applications
   FOR SELECT
@@ -148,8 +155,18 @@ CREATE POLICY "Admins can view all applications" ON volunteer_applications
   FOR SELECT
   USING (check_is_admin());
 
+CREATE POLICY "Admins can insert applications" ON volunteer_applications
+  FOR INSERT
+  USING (check_is_admin())
+  WITH CHECK (check_is_admin());
+
 CREATE POLICY "Admins can update applications" ON volunteer_applications
   FOR UPDATE
+  USING (check_is_admin())
+  WITH CHECK (check_is_admin());
+
+CREATE POLICY "Admins can delete applications" ON volunteer_applications
+  FOR DELETE
   USING (check_is_admin());
 
 -- ============================================================================

@@ -67,18 +67,19 @@ class ClothService {
     return (data as List).map((e) => ClothItem.fromJson(e)).toList();
   }
 
-  // Fetches all cloth donation items (for current user)
+  // Fetches all cloth donation items (RLS will filter based on user role)
   Future<List<ClothItem>> fetchAll() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return [];
-
-    final data = await supabase
-        .from('cloth_donations')
-        .select()
-        .eq('user_id', user.id)
-        .order('created_at', ascending: false);
-
-    return (data as List).map((e) => ClothItem.fromJson(e)).toList();
+    try {
+      final data = await supabase
+          .from('cloth_donations')
+          .select()
+          .order('created_at', ascending: false);
+      print('✓ Cloth items fetched: ${(data as List).length} items');
+      return (data as List).map((e) => ClothItem.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching cloth items: $e');
+      rethrow;
+    }
   }
 
   // Admin/Agent method to update status (Placeholder integration)

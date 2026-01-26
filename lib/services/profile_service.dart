@@ -153,39 +153,61 @@ class ProfileService {
 
   /// Fetch all applications for Admin review
   Future<List<VolunteerApplication>> fetchAllApplications() async {
-    final res = await supabase
-        .from('volunteer_applications')
-        .select()
-        .order('created_at', ascending: false);
-    return (res as List).map((e) => VolunteerApplication.fromJson(e)).toList();
+    try {
+      final res = await supabase
+          .from('volunteer_applications')
+          .select()
+          .order('created_at', ascending: false);
+      print(
+          '✓ All volunteer applications fetched: ${(res as List).length} applications');
+      return (res as List)
+          .map((e) => VolunteerApplication.fromJson(e))
+          .toList();
+    } catch (e) {
+      print('✗ Error fetching volunteer applications: $e');
+      rethrow;
+    }
   }
 
   /// Admin Decision Procedure for Volunteers
   Future<void> decideOnApplication(
       String appId, String userId, bool approve) async {
     final newStatus = approve ? 'approved' : 'rejected';
-    final newRole = approve ? 'agent' : 'user';
+    final newRole = approve ? 'volunteer' : 'user';
 
-    // 1. Update the application record status
-    await supabase
-        .from('volunteer_applications')
-        .update({'status': newStatus}).eq('id', appId);
+    try {
+      // 1. Update the application record status
+      await supabase
+          .from('volunteer_applications')
+          .update({'status': newStatus}).eq('id', appId);
 
-    // 2. Update the user role and clear the request timestamp
-    await supabase.from('profiles').update({
-      'user_role': newRole,
-      'volunteer_requested_at': null,
-    }).eq('id', userId);
+      // 2. Update the user role
+      await supabase.from('profiles').update({
+        'user_role': newRole,
+        'volunteer_requested_at': null,
+      }).eq('id', userId);
 
-    // 3. If approved, ensure they are in the pickup agents list
-    if (approve) {
-      final profile = await fetchProfile(userId);
-      await supabase.from('pickup_requests').upsert({
-        'id': userId,
-        'name': profile?['full_name'] ?? 'Volunteer Agent',
-        'phone': profile?['phone_number'] ?? 'N/A',
-        'is_active': true,
-      });
+      // 3. If approved, create pickup request entry
+      if (approve) {
+        final profile = await fetchProfile(userId);
+        try {
+          await supabase.from('pickup_requests').insert({
+            'agent_id': userId,
+            'name': profile?['full_name'] ?? 'Volunteer',
+            'phone': profile?['phone_number'] ?? 'N/A',
+            'email': profile?['email'] ?? 'N/A',
+            'is_active': true,
+          });
+        } catch (e) {
+          print('Note: Could not create pickup_request: $e');
+          // Not critical if this fails
+        }
+      }
+
+      print('Application decision successful: $newStatus');
+    } catch (e) {
+      print('Error in decideOnApplication: $e');
+      rethrow;
     }
   }
 

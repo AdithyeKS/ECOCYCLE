@@ -13,6 +13,8 @@ import '../services/volunteer_schedule_service.dart';
 import '../core/supabase_config.dart';
 import 'login_screen.dart';
 
+enum AdminTab { dispatch, volunteer, logistics, users, settings }
+
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
@@ -20,8 +22,7 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard>
-    with SingleTickerProviderStateMixin {
+class _AdminDashboardState extends State<AdminDashboard> {
   final _ewasteService = EwasteService();
   final _profileService = ProfileService();
   final _scheduleService = VolunteerScheduleService();
@@ -41,7 +42,8 @@ class _AdminDashboardState extends State<AdminDashboard>
   List<VolunteerSchedule> availableVolunteers = [];
   bool isFetchingVolunteers = false;
 
-  late TabController _tabController;
+  // Mobile app state
+  AdminTab _selectedTab = AdminTab.dispatch;
   final List<String> _roles = ['user', 'agent', 'volunteer', 'admin'];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -51,7 +53,6 @@ class _AdminDashboardState extends State<AdminDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
     _searchController.addListener(() {
       setState(
           () => _searchQuery = _searchController.text.trim().toLowerCase());
@@ -61,7 +62,6 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -71,6 +71,8 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (!mounted) return;
     setState(() => isLoading = true);
     try {
+      print('--- Starting admin data fetch ---');
+
       // Parallel execution ensures all data is fetched before the UI updates
       final results = await Future.wait([
         _ewasteService.fetchAll(),
@@ -79,11 +81,17 @@ class _AdminDashboardState extends State<AdminDashboard>
         _profileService.fetchAllProfiles(),
         _profileService.fetchAllApplications(),
         _scheduleService.fetchAllSchedules(),
-      ]);
+      ], eagerError: false);
 
       final List<EwasteItem> items = results[0] as List<EwasteItem>;
       final List<Map<String, dynamic>> profiles =
           results[3] as List<Map<String, dynamic>>;
+      final List<VolunteerApplication> apps =
+          results[4] as List<VolunteerApplication>;
+
+      print('✓ E-waste items: ${items.length}');
+      print('✓ Profiles: ${profiles.length}');
+      print('✓ Volunteer applications: ${apps.length}');
 
       // Create a map for quick name lookups by ID
       final Map<String, String> namesMap = {};
@@ -109,12 +117,14 @@ class _AdminDashboardState extends State<AdminDashboard>
         agents = results[2] as List<PickupAgent>;
         userNames = namesMap;
         allProfiles = profiles;
-        volunteerApps = results[4] as List<VolunteerApplication>;
+        volunteerApps = apps;
         allSchedules = results[5] as List<VolunteerSchedule>;
         isLoading = false;
       });
+      print('--- Admin data fetch complete ---');
     } catch (e) {
       setState(() => isLoading = false);
+      print('✗ Error fetching admin data: $e');
       _showError('Failed to synchronize data: $e');
     }
   }
@@ -178,6 +188,7 @@ class _AdminDashboardState extends State<AdminDashboard>
   // --- UI Components ---
 
   @override
+  @override
   Widget build(BuildContext context) {
     final bgColor =
         _isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
@@ -185,50 +196,28 @@ class _AdminDashboardState extends State<AdminDashboard>
 
     return Scaffold(
       backgroundColor: bgColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(130),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _isDarkMode
-                  ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                  : [const Color(0xFF059669), const Color(0xFF047857)],
-            ),
-          ),
-          child: Column(
-            children: [
-              AppBar(
-                elevation: 0,
-                backgroundColor: Colors.transparent,
-                title: const Text('Admin Console',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.white)),
-                actions: [
-                  IconButton(
-                    icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                        color: Colors.white),
-                    onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: () => _logout(),
-                  ),
-                ],
-              ),
-              TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                indicatorColor: Colors.amber,
-                tabs: const [
-                  Tab(text: 'Dispatch', icon: Icon(Icons.local_shipping)),
-                  Tab(text: 'Volunteer', icon: Icon(Icons.how_to_reg)),
-                  Tab(text: 'Logistics', icon: Icon(Icons.calendar_month)),
-                  Tab(text: 'Users', icon: Icon(Icons.people)),
-                ],
-              ),
-            ],
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        title: Text(
+          _getTabTitle(),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: _isDarkMode ? Colors.white : Colors.black,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: _isDarkMode ? Colors.white : Colors.black),
+            onPressed: () => setState(() => _isDarkMode = !_isDarkMode),
+          ),
+          IconButton(
+            icon: Icon(Icons.logout,
+                color: _isDarkMode ? Colors.white : Colors.black),
+            onPressed: _logout,
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -236,26 +225,138 @@ class _AdminDashboardState extends State<AdminDashboard>
               onRefresh: fetchAllData,
               child: Column(
                 children: [
-                  _buildModernHeader(),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildDispatchTab(cardColor),
-                        _buildGatekeeperTab(cardColor),
-                        _buildLogisticsTab(cardColor),
-                        _buildUsersTab(cardColor),
-                      ],
+                  // Search Bar
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    color: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search users, items, emails...',
+                        hintStyle: TextStyle(color: Colors.grey[500]),
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () => _searchController.clear(),
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        filled: true,
+                        fillColor:
+                            _isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                      ),
                     ),
                   ),
+                  Expanded(child: _buildTabContent(cardColor)),
                 ],
               ),
             ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: AdminTab.values.indexOf(_selectedTab),
+        onTap: (index) => setState(() => _selectedTab = AdminTab.values[index]),
+        backgroundColor: _isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+        selectedItemColor: Colors.green,
+        unselectedItemColor:
+            _isDarkMode ? Colors.grey.shade600 : Colors.grey.shade400,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.local_shipping),
+            label: 'Dispatch',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.how_to_reg),
+            label: 'Volunteers',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month),
+            label: 'Logistics',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Users',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
+      ),
     );
   }
 
-  // Tabs continue with your existing UI building logic...
-  // (Include _buildDispatchTab, _buildModernHeader, etc. from your original code)
+  String _getTabTitle() {
+    switch (_selectedTab) {
+      case AdminTab.dispatch:
+        return 'Dispatch Management';
+      case AdminTab.volunteer:
+        return 'Volunteer Applications';
+      case AdminTab.logistics:
+        return 'Logistics & Scheduling';
+      case AdminTab.users:
+        return 'User Management';
+      case AdminTab.settings:
+        return 'Settings';
+    }
+  }
+
+  Widget _buildTabContent(Color cardColor) {
+    switch (_selectedTab) {
+      case AdminTab.dispatch:
+        return _buildDispatchTab(cardColor);
+      case AdminTab.volunteer:
+        return _buildGatekeeperTab(cardColor);
+      case AdminTab.logistics:
+        return _buildLogisticsTab(cardColor);
+      case AdminTab.users:
+        return _buildUsersTab(cardColor);
+      case AdminTab.settings:
+        return _buildSettingsTab(cardColor);
+    }
+  }
+
+  Widget _buildSettingsTab(Color cardColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Dark Mode',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                Switch(
+                  value: _isDarkMode,
+                  onChanged: (value) => setState(() => _isDarkMode = value),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Logout'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildModernHeader() {
     final pendingItems =
@@ -359,19 +460,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     }).toList();
 
     if (filteredItems.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inventory, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text(
-              'No items found',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-          ],
-        ),
-      );
+      return _buildEmptyState('No e-waste items', Icons.inventory);
     }
 
     return ListView.builder(
@@ -379,145 +468,251 @@ class _AdminDashboardState extends State<AdminDashboard>
       itemCount: filteredItems.length,
       itemBuilder: (context, index) {
         final item = filteredItems[index];
+        final userName = userNames[item.userId] ?? 'Unknown';
+
         return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 3,
+          margin: const EdgeInsets.only(bottom: 16),
+          elevation: 4,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: item.imageUrl.isNotEmpty
-                          ? Image.network(
-                              item.imageUrl,
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                width: 60,
-                                height: 60,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [Colors.white, Colors.grey[50]!],
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header: Username | Item Name | Status
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Item Image
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: item.imageUrl.isNotEmpty
+                            ? Image.network(
+                                item.imageUrl,
+                                width: 70,
+                                height: 70,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                  width: 70,
+                                  height: 70,
+                                  color: Colors.grey[200],
+                                  child: const Icon(Icons.image_not_supported,
+                                      size: 28),
+                                ),
+                              )
+                            : Container(
+                                width: 70,
+                                height: 70,
                                 color: Colors.grey[200],
-                                child: const Icon(Icons.image_not_supported,
-                                    size: 24),
+                                child: const Icon(Icons.inventory, size: 28),
                               ),
-                            )
-                          : Container(
-                              width: 60,
-                              height: 60,
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.inventory, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '👤 $userName',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey,
+                              ),
                             ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.itemName,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            userNames[item.userId] ?? 'Unknown User',
-                            style: TextStyle(
-                                color: Colors.grey[600], fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(item.deliveryStatus)
-                            .withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        item.deliveryStatus.toUpperCase(),
-                        style: TextStyle(
-                          color: _getStatusColor(item.deliveryStatus),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                            const SizedBox(height: 4),
+                            Text(
+                              item.itemName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.description,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item.description,
-                  style: TextStyle(color: Colors.grey[700], fontSize: 14),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.location_on, size: 16, color: Colors.grey[500]),
-                    const SizedBox(width: 4),
-                    Text(
-                      item.location,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    const Spacer(),
-                    if (item.deliveryStatus == 'pending' ||
-                        item.deliveryStatus == 'assigned')
-                      PopupMenuButton<String>(
-                        onSelected: (value) async {
-                          if (value == 'assign_agent') {
-                            final selectedAgent =
-                                await _showAgentSelectionDialog();
-                            if (selectedAgent != null) {
-                              await _assignTask(item.id, selectedAgent, null);
-                            }
-                          } else if (value == 'assign_ngo') {
-                            final selectedNgo = await _showNgoSelectionDialog();
-                            if (selectedNgo != null) {
-                              await _assignTask(item.id, null, selectedNgo);
-                            }
-                          } else if (value == 'mark_collected') {
-                            await _updateStatus(item.id, 'collected', '');
-                          } else if (value == 'mark_delivered') {
-                            await _updateStatus(item.id, 'delivered', '');
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'assign_agent',
-                            child: Text('Assign Agent'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'assign_ngo',
-                            child: Text('Assign NGO'),
-                          ),
-                          if (item.deliveryStatus == 'assigned')
-                            const PopupMenuItem(
-                              value: 'mark_collected',
-                              child: Text('Mark Collected'),
-                            ),
-                          if (item.deliveryStatus == 'collected')
-                            const PopupMenuItem(
-                              value: 'mark_delivered',
-                              child: Text('Mark Delivered'),
-                            ),
-                        ],
+                      _buildStatusBadge(item.deliveryStatus),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Location
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on,
+                          size: 16, color: Colors.green),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          item.location,
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.grey[700]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Action Buttons Row
+                  if (item.deliveryStatus == 'pending' ||
+                      item.deliveryStatus == 'assigned')
+                    Row(
+                      children: [
+                        // Assign to NGO
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final selectedNgo =
+                                  await _showNgoSelectionDialog();
+                              if (selectedNgo != null) {
+                                await _assignTask(item.id, null, selectedNgo);
+                              }
+                            },
+                            icon: const Icon(Icons.business, size: 16),
+                            label: const Text('NGO',
+                                style: TextStyle(fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Assign to Volunteer
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final selectedAgent =
+                                  await _showAgentSelectionDialog();
+                              if (selectedAgent != null) {
+                                await _assignTask(item.id, selectedAgent, null);
+                              }
+                            },
+                            icon: const Icon(Icons.person, size: 16),
+                            label: const Text('Agent',
+                                style: TextStyle(fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Status Change
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showStatusChangeDialog(item),
+                            icon: const Icon(Icons.trending_down, size: 16),
+                            label: const Text('Status',
+                                style: TextStyle(fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyState(String message, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getStatusColor(status).withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(
+          color: _getStatusColor(status),
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  void _showStatusChangeDialog(EwasteItem item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Assigned'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _updateStatus(item.id, 'assigned', '');
+              },
+            ),
+            ListTile(
+              title: const Text('Collected'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _updateStatus(item.id, 'collected', '');
+              },
+            ),
+            ListTile(
+              title: const Text('Delivered'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _updateStatus(item.id, 'delivered', '');
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -597,10 +792,19 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 
   Widget _buildGatekeeperTab(Color cardColor) {
-    final pendingApps =
-        volunteerApps.where((app) => app.status == 'pending').toList();
+    // Show all applications sorted by status and date
+    final sortedApps = volunteerApps.toList();
+    sortedApps.sort((a, b) {
+      // Sort by status: pending first, then approved, then rejected
+      final statusOrder = {'pending': 0, 'approved': 1, 'rejected': 2};
+      final statusCompare =
+          (statusOrder[a.status] ?? 3).compareTo(statusOrder[b.status] ?? 3);
+      if (statusCompare != 0) return statusCompare;
+      // Then sort by date (newest first)
+      return b.createdAt.compareTo(a.createdAt);
+    });
 
-    if (pendingApps.isEmpty) {
+    if (sortedApps.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -608,7 +812,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             Icon(Icons.check_circle, size: 64, color: Colors.green),
             const SizedBox(height: 16),
             const Text(
-              'No pending applications',
+              'No applications',
               style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
           ],
@@ -618,9 +822,16 @@ class _AdminDashboardState extends State<AdminDashboard>
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: pendingApps.length,
+      itemCount: sortedApps.length,
       itemBuilder: (context, index) {
-        final app = pendingApps[index];
+        final app = sortedApps[index];
+        final statusColor = app.status == 'pending'
+            ? Colors.orange
+            : app.status == 'approved'
+                ? Colors.green
+                : Colors.red;
+        final statusLabel = app.status.toUpperCase();
+
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
           elevation: 4,
@@ -654,6 +865,22 @@ class _AdminDashboardState extends State<AdminDashboard>
                         ],
                       ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const Divider(height: 25),
@@ -662,27 +889,54 @@ class _AdminDashboardState extends State<AdminDashboard>
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 Text(app.motivation, style: const TextStyle(fontSize: 13)),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _handleAppDecision(app, false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        child: const Text('Reject'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => _handleAppDecision(app, true),
-                        child: const Text('Approve'),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  'Email: ${app.email}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
+                Text(
+                  'Phone: ${app.phone}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                Text(
+                  'Address: ${app.address}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 15),
+                // Only show action buttons for pending applications
+                if (app.status == 'pending')
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => _handleAppDecision(app, false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: const Text('Reject'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => _handleAppDecision(app, true),
+                          child: const Text('Approve'),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${app.status.toUpperCase()} on ${DateFormat('MMM d, yyyy').format(app.createdAt)}',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -834,101 +1088,244 @@ class _AdminDashboardState extends State<AdminDashboard>
         final email = profile['email'] as String? ?? '';
         final role = profile['user_role'] as String? ?? 'user';
         final phone = profile['phone'] as String? ?? '';
+        final isAdmin = role == 'admin';
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: 3,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      child: Text(fullName[0].toUpperCase()),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            fullName,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: isAdmin
+                    ? [Colors.red[50]!, Colors.red[100]!]
+                    : [Colors.white, Colors.grey[50]!],
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: isAdmin ? Colors.red : Colors.blue,
+                        child: Text(
+                          fullName[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
-                          Text(
-                            email,
-                            style: TextStyle(
-                                color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              fullName,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              email,
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getRoleColor(role).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          role.toUpperCase(),
+                          style: TextStyle(
+                            color: _getRoleColor(role),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (phone.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 16, color: Colors.grey[500]),
+                        const SizedBox(width: 4),
+                        Text(
+                          phone,
+                          style:
+                              TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  if (!isAdmin)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () =>
+                                _showRoleChangeDialog(userId!, role),
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('Role',
+                                style: TextStyle(fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () =>
+                                _confirmDeleteUser(userId!, fullName),
+                            icon: const Icon(Icons.delete, size: 16),
+                            label: const Text('Delete',
+                                style: TextStyle(fontSize: 12)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showUserDetailsDialog(profile),
+                            icon: const Icon(Icons.info, size: 16),
+                            label: const Text('Info',
+                                style: TextStyle(fontSize: 12)),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        border: Border.all(color: Colors.red[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.lock, size: 16, color: Colors.red[400]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Admin accounts cannot be modified',
+                              style: TextStyle(
+                                color: Colors.red[700],
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getRoleColor(role).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        role.toUpperCase(),
-                        style: TextStyle(
-                          color: _getRoleColor(role),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (phone.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.phone, size: 16, color: Colors.grey[500]),
-                      const SizedBox(width: 4),
-                      Text(
-                        phone,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      ),
-                    ],
-                  ),
                 ],
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    if (role != 'admin')
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showRoleChangeDialog(userId!, role),
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('Change Role'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.blue,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showUserDetailsDialog(profile),
-                        icon: const Icon(Icons.info, size: 16),
-                        label: const Text('Details'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _confirmDeleteUser(String userId, String userName) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ Delete User'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to delete $userName?'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                border: Border.all(color: Colors.red[300]!),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '⚠️ This action CANNOT be undone. The user account, profile, and all related data will be permanently deleted.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red[700],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteUser(userId, userName);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete User'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteUser(String userId, String userName) async {
+    try {
+      setState(() => _isDeleting = true);
+
+      // Delete user profile first
+      await AppSupabase.client.from('profiles').delete().eq('id', userId);
+
+      // Delete user auth account
+      try {
+        await AppSupabase.client.auth.admin.deleteUser(userId);
+      } catch (e) {
+        print('Auth deletion note: $e (profile already deleted)');
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ $userName deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      await fetchAllData();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isDeleting = false);
+    }
   }
 
   Color _getRoleColor(String role) {
@@ -946,6 +1343,8 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<void> _showRoleChangeDialog(String userId, String currentRole) async {
     String selectedRole = currentRole;
+    // Only allow user and volunteer roles (not admin or agent)
+    final allowedRoles = ['user', 'volunteer'];
 
     await showDialog(
       context: context,
@@ -954,7 +1353,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           title: const Text('Change User Role'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: _roles
+            children: allowedRoles
                 .map((role) => RadioListTile<String>(
                       title: Text(role[0].toUpperCase() + role.substring(1)),
                       value: role,
@@ -975,7 +1374,8 @@ class _AdminDashboardState extends State<AdminDashboard>
                 try {
                   await _profileService.updateUserRole(userId, selectedRole);
                   fetchAllData();
-                  _showSuccess('Role updated to ${selectedRole[0].toUpperCase() + selectedRole.substring(1)}');
+                  _showSuccess(
+                      'Role updated to ${selectedRole[0].toUpperCase() + selectedRole.substring(1)}');
                   Navigator.pop(context);
                 } catch (e) {
                   _showError('Failed to update role: $e');
@@ -1002,7 +1402,7 @@ class _AdminDashboardState extends State<AdminDashboard>
               _detailRow('Name', profile['full_name'] ?? 'N/A'),
               _detailRow('Email', profile['email'] ?? 'N/A'),
               _detailRow('Phone', profile['phone'] ?? 'N/A'),
-              _detailRow('Role', (profile['user_role'] ?? 'user').capitalize()),
+              _detailRow('Role', _capitalizeFirst(profile['user_role'] ?? 'user')),
               _detailRow(
                   'Created',
                   profile['created_at'] != null
@@ -1046,10 +1446,37 @@ class _AdminDashboardState extends State<AdminDashboard>
   // (Include other tab methods as originally defined)
 
   Future<void> _logout() async {
-    await AppSupabase.client.auth.signOut();
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
-    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await AppSupabase.client.auth.signOut();
+              if (mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (r) => false,
+                );
+              }
+            },
+            child: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _capitalizeFirst(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
   }
 }

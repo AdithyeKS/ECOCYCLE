@@ -65,8 +65,8 @@ class EwasteService {
       'item_name': itemName,
       'description': description,
       'location': location,
-      'photo_url': imageUrl,
-      'status': 'Pending', // User-facing status
+      'image_url': imageUrl,
+      'status': 'pending', // Must match CHECK constraint
       'reward_points': rewardPoints,
       'delivery_status': 'pending', // Internal tracking status
     });

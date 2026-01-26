@@ -235,6 +235,58 @@ CREATE POLICY "Users can update own plastic donations" ON public.plastic_items
   WITH CHECK (user_id = auth.uid());
 
 -- ============================================================================
+-- 6. ADMIN POLICIES - Allow admins to see and manage ALL donations
+-- ============================================================================
+
+-- Admin policies for e-waste items
+CREATE POLICY "Admins can view all e-waste items" ON public.ewaste_items
+  FOR SELECT TO authenticated
+  USING (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  );
+
+CREATE POLICY "Admins can update all e-waste items" ON public.ewaste_items
+  FOR UPDATE TO authenticated
+  USING (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  )
+  WITH CHECK (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  );
+
+-- Admin policies for cloth donations
+CREATE POLICY "Admins can view all cloth donations" ON public.cloth_donations
+  FOR SELECT TO authenticated
+  USING (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  );
+
+CREATE POLICY "Admins can update all cloth donations" ON public.cloth_donations
+  FOR UPDATE TO authenticated
+  USING (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  )
+  WITH CHECK (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  );
+
+-- Admin policies for plastic items
+CREATE POLICY "Admins can view all plastic items" ON public.plastic_items
+  FOR SELECT TO authenticated
+  USING (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  );
+
+CREATE POLICY "Admins can update all plastic items" ON public.plastic_items
+  FOR UPDATE TO authenticated
+  USING (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  )
+  WITH CHECK (
+    (SELECT user_role FROM public.profiles WHERE id = auth.uid() LIMIT 1) = 'admin'
+  );
+
+-- ============================================================================
 -- 7. INDEXES for Performance
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_ewaste_items_user_id ON public.ewaste_items(user_id);

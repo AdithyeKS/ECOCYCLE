@@ -29,12 +29,13 @@ class _TestUploadPageState extends State<TestUploadPage> {
       final path = 'uploads/$name';
 
       await supabase.storage.from('ewaste_images').upload(path, _image!);
-      final publicUrl = supabase.storage.from('ewaste_images').getPublicUrl(path);
+      final publicUrl =
+          supabase.storage.from('ewaste_images').getPublicUrl(path);
 
       await supabase.from('ewaste_items').insert({
         'title': 'Test Upload',
         'description': 'Uploaded from Flutter',
-        'photo_url': publicUrl,
+        'image_url': publicUrl,
         'location': 'Test Location',
         'status': 'Pending',
       });
@@ -69,7 +70,9 @@ class _TestUploadPageState extends State<TestUploadPage> {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _busy ? null : _upload,
-              child: _busy ? const CircularProgressIndicator() : const Text('Upload & Insert'),
+              child: _busy
+                  ? const CircularProgressIndicator()
+                  : const Text('Upload & Insert'),
             ),
           ],
         ),

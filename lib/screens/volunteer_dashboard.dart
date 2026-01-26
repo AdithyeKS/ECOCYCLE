@@ -305,7 +305,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
         ),
       );
     } else {
-      // Regular user/volunteer view
+      // Regular user/volunteer view - Professional UI
       return DefaultTabController(
         length: 3,
         child: Scaffold(
@@ -352,6 +352,99 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
         ),
       );
     }
+  }
+
+  Widget _buildVolunteerStatsHeader() {
+    final totalAssignments = _assignments.length;
+    final completedAssignments =
+        _assignments.where((a) => a.status == 'completed').length;
+    final totalTasks = _assignedItems.length;
+    final totalScheduleDays =
+        _schedules.where((s) => s.isAvailable && s.id.isNotEmpty).length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'My Progress',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildVolunteerStatCard(
+                  'Assignments',
+                  totalAssignments.toString(),
+                  Icons.assignment,
+                  Colors.blue,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildVolunteerStatCard(
+                  'Completed',
+                  completedAssignments.toString(),
+                  Icons.check_circle,
+                  Colors.green,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildVolunteerStatCard(
+                  'Tasks',
+                  totalTasks.toString(),
+                  Icons.task,
+                  Colors.orange,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildVolunteerStatCard(
+                  'Available Days',
+                  totalScheduleDays.toString(),
+                  Icons.calendar_month,
+                  Colors.purple,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVolunteerStatCard(
+      String label, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 24, color: color),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _calendarCellBuilder(DateTime day, DateTime today,
@@ -429,67 +522,112 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
       safeFocusedDay = today;
     }
 
-    return Column(
-      children: [
-        TableCalendar(
-          firstDay: today,
-          lastDay: today.add(const Duration(days: 90)),
-          focusedDay: safeFocusedDay,
-          calendarFormat: _calendarFormat,
-          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-          enabledDayPredicate: (day) => !day.isBefore(today),
-          onDaySelected: (selectedDay, focusedDay) {
-            final normalizedSelection = _normalizeDate(selectedDay);
-            if (normalizedSelection.isBefore(today)) return;
-
-            setState(() {
-              _selectedDay = normalizedSelection;
-              _focusedDay = focusedDay;
-            });
-            _showAvailabilityDialog(normalizedSelection);
-          },
-          onFormatChanged: (format) {
-            setState(() => _calendarFormat = format);
-          },
-          onPageChanged: (focusedDay) {
-            setState(() => _focusedDay = focusedDay);
-          },
-          calendarBuilders: CalendarBuilders(
-            defaultBuilder: (context, day, focusedDay) =>
-                _calendarCellBuilder(day, today),
-            selectedBuilder: (context, day, focusedDay) =>
-                _calendarCellBuilder(day, today, isSelected: true),
-            todayBuilder: (context, day, focusedDay) =>
-                _calendarCellBuilder(day, today, isToday: true),
-            disabledBuilder: (context, day, focusedDay) =>
-                _calendarCellBuilder(day, today, isDisabled: true),
-            outsideBuilder: (context, day, focusedDay) =>
-                _calendarCellBuilder(day, today, isDisabled: true),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Text(
-                'Tap on a future date to set yourself as available or clear an existing schedule.',
-                style: TextStyle(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Stats Header
+          _buildVolunteerStatsHeader(),
+          const SizedBox(height: 8),
+          // Calendar Card
+          Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).shadowColor.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _legendItem(Colors.green.shade100, 'Available'),
-                  const SizedBox(width: 16),
-                  _legendItem(Colors.grey.shade100, 'Unset'),
+                  const Text(
+                    'Set Your Availability',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  TableCalendar(
+                    firstDay: today,
+                    lastDay: today.add(const Duration(days: 90)),
+                    focusedDay: safeFocusedDay,
+                    calendarFormat: _calendarFormat,
+                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                    enabledDayPredicate: (day) => !day.isBefore(today),
+                    onDaySelected: (selectedDay, focusedDay) {
+                      final normalizedSelection = _normalizeDate(selectedDay);
+                      if (normalizedSelection.isBefore(today)) return;
+
+                      setState(() {
+                        _selectedDay = normalizedSelection;
+                        _focusedDay = focusedDay;
+                      });
+                      _showAvailabilityDialog(normalizedSelection);
+                    },
+                    onFormatChanged: (format) {
+                      setState(() => _calendarFormat = format);
+                    },
+                    onPageChanged: (focusedDay) {
+                      setState(() => _focusedDay = focusedDay);
+                    },
+                    calendarBuilders: CalendarBuilders(
+                      defaultBuilder: (context, day, focusedDay) =>
+                          _calendarCellBuilder(day, today),
+                      selectedBuilder: (context, day, focusedDay) =>
+                          _calendarCellBuilder(day, today, isSelected: true),
+                      todayBuilder: (context, day, focusedDay) =>
+                          _calendarCellBuilder(day, today, isToday: true),
+                      disabledBuilder: (context, day, focusedDay) =>
+                          _calendarCellBuilder(day, today, isDisabled: true),
+                      outsideBuilder: (context, day, focusedDay) =>
+                          _calendarCellBuilder(day, today, isDisabled: true),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.blue.shade700, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Click on a date to mark yourself available or unavailable.',
+                            style: TextStyle(
+                              color: Colors.blue.shade700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _legendItem(Colors.green.shade100, 'Available'),
+                      const SizedBox(width: 24),
+                      _legendItem(Colors.grey.shade100, 'Not Set'),
+                      const SizedBox(width: 24),
+                      _legendItem(Colors.grey.shade300, 'Past Date'),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -518,22 +656,40 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     }
 
     if (_assignments.isEmpty) {
-      return Center(
+      return SingleChildScrollView(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.assignment_turned_in,
-                size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text(
-              'No assignments yet',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Assignments will appear here when admins assign tasks to you.',
-              style: TextStyle(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
+            _buildVolunteerStatsHeader(),
+            const SizedBox(height: 32),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.assignment_turned_in,
+                        size: 64, color: Colors.blue.shade400),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No Assignments Yet',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Assignments will appear here when admins assign tasks to you. Check back soon!',
+                      style: TextStyle(color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -542,12 +698,23 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _assignments.length,
+      itemCount: _assignments.length + 1,
       itemBuilder: (context, index) {
-        final assignment = _assignments[index];
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildVolunteerStatsHeader(),
+          );
+        }
+
+        final assignment = _assignments[index - 1];
+        final statusColor = _getAssignmentStatusColor(assignment.status);
+        final isActionable =
+            assignment.status == 'pending' || assignment.status == 'accepted';
+
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
-          elevation: 4,
+          elevation: 2,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
@@ -555,101 +722,178 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header Row
                 Row(
                   children: [
-                    Icon(
-                      assignment.taskType == 'ewaste_pickup'
-                          ? Icons.recycling
-                          : Icons.checkroom,
-                      color: Colors.blue,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        assignment.taskType == 'ewaste_pickup'
+                            ? Icons.recycling
+                            : Icons.checkroom,
+                        color: statusColor,
+                        size: 20,
+                      ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Task: ${assignment.taskType.replaceAll('_', ' ').toUpperCase()}',
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            assignment.taskType
+                                .replaceAll('_', ' ')
+                                .toUpperCase(),
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Task ID: ${assignment.id.substring(0, 8)}...',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: _getAssignmentStatusColor(assignment.status)
-                            .withOpacity(0.15),
+                        color: statusColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: statusColor.withOpacity(0.3)),
                       ),
                       child: Text(
                         assignment.status.toUpperCase(),
                         style: TextStyle(
-                          color: _getAssignmentStatusColor(assignment.status),
-                          fontSize: 12,
+                          color: statusColor,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (assignment.assignedAt != null)
-                  Text(
-                    'Assigned: ${DateFormat('MMM d, yyyy').format(assignment.assignedAt!)}',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                if (assignment.scheduledDate != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Scheduled: ${DateFormat('MMM d, yyyy').format(assignment.scheduledDate!)}',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-                if (assignment.notes != null &&
-                    assignment.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Notes: ${assignment.notes}',
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                ],
                 const SizedBox(height: 12),
-                if (assignment.status == 'pending')
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _updateAssignmentStatus(
-                              assignment.id, 'accepted'),
-                          icon: const Icon(Icons.check),
-                          label: const Text('Accept'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.green,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _updateAssignmentStatus(
-                              assignment.id, 'cancelled'),
-                          icon: const Icon(Icons.close),
-                          label: const Text('Decline'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                else if (assignment.status == 'accepted')
-                  FilledButton.icon(
-                    onPressed: () =>
-                        _updateAssignmentStatus(assignment.id, 'completed'),
-                    icon: const Icon(Icons.done),
-                    label: const Text('Mark Complete'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green,
-                    ),
+
+                // Details Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (assignment.assignedAt != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.date_range,
+                                  size: 16, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Assigned: ${DateFormat('MMM d, yyyy').format(assignment.assignedAt!)}',
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (assignment.scheduledDate != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.schedule,
+                                  size: 16, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Scheduled: ${DateFormat('MMM d, yyyy').format(assignment.scheduledDate!)}',
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (assignment.notes != null &&
+                          assignment.notes!.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.description,
+                                size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                assignment.notes!,
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Action Buttons
+                if (isActionable)
+                  if (assignment.status == 'pending')
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _updateAssignmentStatus(
+                                assignment.id, 'accepted'),
+                            icon: const Icon(Icons.check, size: 18),
+                            label: const Text('Accept'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.green,
+                              side: const BorderSide(color: Colors.green),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _updateAssignmentStatus(
+                                assignment.id, 'cancelled'),
+                            icon: const Icon(Icons.close, size: 18),
+                            label: const Text('Decline'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (assignment.status == 'accepted')
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () =>
+                            _updateAssignmentStatus(assignment.id, 'completed'),
+                        icon: const Icon(Icons.done),
+                        label: const Text('Mark as Complete'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green,
+                        ),
+                      ),
+                    ),
               ],
             ),
           ),
@@ -677,20 +921,40 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     }
 
     if (_assignedItems.isEmpty) {
-      return Center(
+      return SingleChildScrollView(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.assignment, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              tr('no_assigned_pickups'),
-              style: const TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr('check_back_later'),
-              style: TextStyle(color: Colors.grey[600]),
+            _buildVolunteerStatsHeader(),
+            const SizedBox(height: 32),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.task,
+                        size: 64, color: Colors.orange.shade400),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No Assigned Tasks',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'No pickup tasks assigned yet. Check back soon for new assignments!',
+                      style: TextStyle(color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -699,12 +963,23 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _assignedItems.length,
+      itemCount: _assignedItems.length + 1,
       itemBuilder: (context, index) {
-        final item = _assignedItems[index];
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildVolunteerStatsHeader(),
+          );
+        }
+
+        final item = _assignedItems[index - 1];
+        final statusColor = _getStatusColor(item.deliveryStatus);
+        final isActionable = item.deliveryStatus == 'assigned' ||
+            item.deliveryStatus == 'collected';
+
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
-          elevation: 4,
+          elevation: 2,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
@@ -712,6 +987,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Image and Details Header
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -720,92 +996,161 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
                       child: item.imageUrl.isNotEmpty
                           ? Image.network(
                               item.imageUrl,
-                              width: 70,
-                              height: 70,
+                              width: 80,
+                              height: 80,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Container(
-                                width: 70,
-                                height: 70,
+                                width: 80,
+                                height: 80,
                                 color: Colors.grey[200],
                                 child: const Icon(Icons.image_not_supported,
                                     size: 30),
                               ),
                             )
-                          : const Icon(Icons.image_not_supported, size: 70),
+                          : Container(
+                              width: 80,
+                              height: 80,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.electric_bolt,
+                                  size: 30, color: Colors.grey),
+                            ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item.itemName,
-                            style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item.description,
-                            style: TextStyle(color: Colors.grey[600]),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.itemName,
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item.description,
+                                      style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: statusColor.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  item.deliveryStatus.toUpperCase(),
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const Divider(height: 24),
-                _detailRow(Icons.location_on, 'Location:', item.location),
-                if (item.pickupScheduledAt != null)
-                  _detailRow(
-                    Icons.schedule,
-                    'Scheduled:',
-                    DateFormat('MMM d, h:mm a')
-                        .format(item.pickupScheduledAt!.toLocal()),
-                  ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(item.deliveryStatus)
-                            .withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        item.deliveryStatus.toUpperCase(),
-                        style: TextStyle(
-                          color: _getStatusColor(item.deliveryStatus),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                Divider(color: Colors.grey.shade200, height: 1),
+                const SizedBox(height: 12),
+
+                // Details Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _detailRow(Icons.location_on, 'Location:', item.location),
+                      if (item.pickupScheduledAt != null) ...[
+                        const SizedBox(height: 8),
+                        _detailRow(
+                          Icons.schedule,
+                          'Scheduled:',
+                          DateFormat('MMM d, h:mm a')
+                              .format(item.pickupScheduledAt!.toLocal()),
                         ),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (item.deliveryStatus == 'assigned')
-                      FilledButton.icon(
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Action Button
+                if (isActionable)
+                  if (item.deliveryStatus == 'assigned')
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
                         onPressed: () => _markAsCollected(item),
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                        icon: const Icon(Icons.check_circle_outline),
                         label: Text(tr('mark_collected')),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.orange.shade700,
                         ),
-                      )
-                    else if (item.deliveryStatus == 'collected')
-                      FilledButton.icon(
+                      ),
+                    )
+                  else if (item.deliveryStatus == 'collected')
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
                         onPressed: () => _markAsDelivered(item),
-                        icon: const Icon(Icons.local_shipping, size: 18),
+                        icon: const Icon(Icons.local_shipping),
                         label: Text(tr('mark_delivered')),
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.green.shade700,
                         ),
                       ),
-                  ],
-                ),
+                    )
+                  else if (item.deliveryStatus == 'delivered')
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Task Completed',
+                            style: TextStyle(
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
               ],
             ),
           ),
