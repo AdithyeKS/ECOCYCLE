@@ -186,11 +186,31 @@ class ProfileService {
           .from('volunteer_applications')
           .update({'status': newStatus}).eq('id', appId);
 
-      // 2. Update the user role
-      await supabase.from('profiles').update({
-        'user_role': newRole,
-        'volunteer_requested_at': null,
-      }).eq('id', userId);
+      // 2. Update the user role (only update role and timestamp)
+      final existingProfile = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (existingProfile != null) {
+        await supabase.from('profiles').update({
+          'user_role': newRole,
+          'volunteer_requested_at': null,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', userId);
+      } else {
+        // Create profile if it doesn't exist
+        await supabase.from('profiles').insert({
+          'id': userId,
+          'user_role': newRole,
+          'volunteer_requested_at': null,
+          'full_name': 'Unknown',
+          'phone_number': 'N/A',
+          'address': 'N/A',
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
 
       // 3. If approved, create pickup request entry
       if (approve) {

@@ -179,7 +179,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       VolunteerApplication app, bool approve) async {
     try {
       await _profileService.decideOnApplication(app.id, app.userId, approve);
-      fetchAllData();
+      await fetchAllData();
       _showSuccess(approve ? 'Volunteer Approved' : 'Volunteer Rejected');
     } catch (e) {
       _showError('Decision error: $e');
@@ -223,6 +223,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.refresh,
+                color: _isDarkMode ? Colors.white : Colors.black),
+            onPressed: fetchAllData,
+          ),
           IconButton(
             icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode,
                 color: _isDarkMode ? Colors.white : Colors.black),
