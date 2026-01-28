@@ -8,13 +8,15 @@ import '../models/pickup_agent.dart';
 import '../models/profile.dart';
 import '../models/volunteer_application.dart';
 import '../models/volunteer_schedule.dart';
+import '../models/feedback.dart';
 import '../services/ewaste_service.dart';
 import '../services/profile_service.dart';
 import '../services/volunteer_schedule_service.dart';
+import '../services/feedback_service.dart';
 import '../core/supabase_config.dart';
 import 'login_screen.dart';
 
-enum AdminTab { dispatch, volunteer, logistics, users, settings }
+enum AdminTab { dispatch, volunteer, logistics, users, feedback }
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -27,12 +29,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final _ewasteService = EwasteService();
   final _profileService = ProfileService();
   final _scheduleService = VolunteerScheduleService();
+  final _feedbackService = FeedbackService();
 
   List<EwasteItem> ewasteItems = [];
   List<Ngo> ngos = [];
   List<PickupAgent> agents = [];
   List<VolunteerApplication> volunteerApps = [];
   List<VolunteerSchedule> allSchedules = [];
+  List<FeedbackItem> feedbackItems = [];
   Map<String, String> userNames = {};
   List<Map<String, dynamic>> allProfiles = [];
   bool isLoading = true;
@@ -50,6 +54,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String _searchQuery = '';
   bool _isDarkMode = true;
   bool _isDeleting = false;
+
+  // Feedback expansion state
+  final Set<String> _expandedFeedback = {};
+
+  // Volunteer application expansion state
+  final Set<String> _expandedVolunteerApps = {};
 
   @override
   void initState() {
@@ -82,6 +92,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _profileService.fetchAllProfiles(),
         _profileService.fetchAllApplications(),
         _scheduleService.fetchAllSchedules(),
+        _feedbackService.fetchAllFeedback(),
       ], eagerError: false);
 
       final List<EwasteItem> items = results[0] as List<EwasteItem>;
@@ -124,6 +135,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         allProfiles = profileMaps;
         volunteerApps = apps;
         allSchedules = results[5] as List<VolunteerSchedule>;
+        feedbackItems = results[6] as List<FeedbackItem>;
         isLoading = false;
       });
       print('--- Admin data fetch complete ---');
@@ -265,26 +277,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
         selectedItemColor: Colors.green,
         unselectedItemColor:
             _isDarkMode ? Colors.grey.shade600 : Colors.grey.shade400,
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.local_shipping),
             label: 'Dispatch',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.how_to_reg),
             label: 'Volunteers',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month),
             label: 'Logistics',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'Users',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.feedback),
+            label: 'Feedback',
           ),
         ],
       ),
@@ -301,8 +313,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return 'Logistics & Scheduling';
       case AdminTab.users:
         return 'User Management';
-      case AdminTab.settings:
-        return 'Settings';
+      case AdminTab.feedback:
+        return 'User Feedback';
     }
   }
 
@@ -316,9 +328,284 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return _buildLogisticsTab(cardColor);
       case AdminTab.users:
         return _buildUsersTab(cardColor);
-      case AdminTab.settings:
-        return _buildSettingsTab(cardColor);
+      case AdminTab.feedback:
+        return _buildFeedbackTab(cardColor);
     }
+  }
+
+  Widget _buildFeedbackTab(Color cardColor) {
+    final filteredFeedback = feedbackItems.where((feedback) {
+      if (_searchQuery.isEmpty) return true;
+      final subject = feedback.subject.toLowerCase();
+      final message = feedback.message.toLowerCase();
+      final userEmail = feedback.userEmail?.toLowerCase() ?? '';
+      final category = feedback.category.toLowerCase();
+      return subject.contains(_searchQuery) ||
+          message.contains(_searchQuery) ||
+          userEmail.contains(_searchQuery) ||
+          category.contains(_searchQuery);
+    }).toList();
+
+    if (filteredFeedback.isEmpty) {
+      return _buildEmptyState('No feedback items', Icons.feedback);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filteredFeedback.length,
+      itemBuilder: (context, index) {
+        final feedback = filteredFeedback[index];
+        final isExpanded = _expandedFeedback.contains(feedback.id);
+        final statusColor = feedback.status == 'pending'
+            ? Colors.orange
+            : feedback.status == 'reviewed'
+                ? Colors.blue
+                : feedback.status == 'resolved'
+                    ? Colors.green
+                    : Colors.grey;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 3,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Row - Always visible
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            feedback.subject,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            feedback.userEmail ?? 'Anonymous',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _showFeedbackStatusDialog(feedback),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              Border.all(color: statusColor.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              feedback.status.toUpperCase(),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_drop_down,
+                              size: 14,
+                              color: statusColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Category - Always visible
+                const SizedBox(height: 8),
+                Text(
+                  'Category: ${feedback.category}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+
+                // Clickable message preview
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isExpanded) {
+                        _expandedFeedback.remove(feedback.id);
+                      } else {
+                        _expandedFeedback.add(feedback.id);
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isExpanded
+                                ? feedback.message
+                                : (feedback.message.length > 100
+                                    ? '${feedback.message.substring(0, 100)}...'
+                                    : feedback.message),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          isExpanded ? Icons.expand_less : Icons.expand_more,
+                          size: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Expandable content (Admin Response and Actions)
+                if (isExpanded) ...[
+                  if (feedback.adminResponse != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Admin Response:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.blue.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            feedback.adminResponse!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showFeedbackStatusDialog(feedback),
+                          icon: const Icon(Icons.flag, size: 16),
+                          label: const Text('Update Status',
+                              style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFeedbackStatusDialog(FeedbackItem feedback) {
+    // Enforce strict workflow: Pending → Reviewed → Resolved (no Closed option)
+    List<String> availableStatuses = [];
+
+    switch (feedback.status) {
+      case 'pending':
+        availableStatuses = ['reviewed'];
+        break;
+      case 'reviewed':
+        availableStatuses = ['resolved'];
+        break;
+      case 'resolved':
+        // No further transitions allowed - resolved is the final state
+        availableStatuses = [];
+        break;
+      default:
+        availableStatuses = ['pending'];
+    }
+
+    if (availableStatuses.isEmpty) {
+      // Show message that no further status changes are allowed
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Status Update'),
+          content: const Text(
+              'This feedback has been resolved and cannot be changed further.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Feedback Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: availableStatuses.map((status) {
+            String displayText = status[0].toUpperCase() + status.substring(1);
+            return ListTile(
+              title: Text(displayText),
+              onTap: () async {
+                Navigator.pop(context);
+                await _updateFeedbackStatus(feedback.id, status, null);
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSettingsTab(Color cardColor) {
@@ -892,7 +1179,48 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   'Motivation:',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-                Text(app.motivation, style: const TextStyle(fontSize: 13)),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (_expandedVolunteerApps.contains(app.id)) {
+                        _expandedVolunteerApps.remove(app.id);
+                      } else {
+                        _expandedVolunteerApps.add(app.id);
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _expandedVolunteerApps.contains(app.id)
+                                ? app.motivation
+                                : (app.motivation.length > 100
+                                    ? '${app.motivation.substring(0, 100)}...'
+                                    : app.motivation),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          _expandedVolunteerApps.contains(app.id)
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          size: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Email: ${app.email}',
@@ -1179,20 +1507,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   if (!isAdmin)
                     Row(
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                _showRoleChangeDialog(userId!, role),
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('Role',
-                                style: TextStyle(fontSize: 12)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () =>
@@ -1483,5 +1797,56 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String _capitalizeFirst(String text) {
     if (text.isEmpty) return text;
     return text[0].toUpperCase() + text.substring(1);
+  }
+
+  void _showFeedbackResponseDialog(FeedbackItem feedback) {
+    final TextEditingController responseController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Respond to Feedback'),
+        content: TextField(
+          controller: responseController,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: 'Enter your response...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (responseController.text.trim().isNotEmpty) {
+                await _feedbackService.respondToFeedback(
+                  feedback.id,
+                  responseController.text.trim(),
+                );
+                fetchAllData();
+                _showSuccess('Response sent successfully');
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Send Response'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateFeedbackStatus(
+      String feedbackId, String status, String? adminResponse) async {
+    try {
+      await _feedbackService.updateFeedbackStatus(
+          feedbackId, status, adminResponse);
+      fetchAllData();
+      _showSuccess('Feedback status updated');
+    } catch (e) {
+      _showError('Failed to update status: $e');
+    }
   }
 }

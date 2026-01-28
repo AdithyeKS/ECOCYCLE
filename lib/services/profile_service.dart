@@ -21,6 +21,8 @@ class ProfileService {
         'full_name': fullName.trim(),
         'phone_number': phone.trim(),
         'address': address.trim(),
+        'user_role':
+            'user', // Ensure user_role is set to avoid constraint violation
         'updated_at': DateTime.now().toIso8601String(),
       });
 

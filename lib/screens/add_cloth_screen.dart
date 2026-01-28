@@ -10,7 +10,7 @@ import '../services/cloth_service.dart';
 import '../core/supabase_config.dart';
 
 // Assuming GEMINI_API_KEY is available globally or needs to be defined here:
-const String _GEMINI_API_KEY = "AIzaSyB_wg2sH_ibW5Vzp_as2lqUb3PlEBYcDGY"; 
+const String _GEMINI_API_KEY = "AIzaSyB6OjloqNfljFJvo4YUnr6XqUZ2rkCGXsU"; 
 const String _GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 
 class AddClothScreen extends StatefulWidget {

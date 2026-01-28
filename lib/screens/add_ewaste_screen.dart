@@ -14,7 +14,7 @@ import '../services/ewaste_service.dart';
 // ---------------------------------------------------------------------------------------
 // ⭐ ACTION REQUIRED: PASTE YOUR GOOGLE GEMINI API KEY HERE ⭐
 // ---------------------------------------------------------------------------------------
-const String _GEMINI_API_KEY = "AIzaSyB_wg2sH_ibW5Vzp_as2lqUb3PlEBYcDGY";
+const String _GEMINI_API_KEY = "AIzaSyB6OjloqNfljFJvo4YUnr6XqUZ2rkCGXsU";
 // ---------------------------------------------------------------------------------------
 
 const String _GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";

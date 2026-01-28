@@ -3,6 +3,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:EcoCycle/screens/profile_screen.dart';
 import 'package:EcoCycle/screens/login_screen.dart';
+import 'package:EcoCycle/services/feedback_service.dart';
+import 'package:EcoCycle/models/feedback.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -60,41 +62,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showFeedbackDialog() {
-    final TextEditingController feedbackController = TextEditingController();
+    final TextEditingController subjectController = TextEditingController();
+    final TextEditingController messageController = TextEditingController();
+    String selectedCategory = 'general';
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Feedback'),
-        content: TextField(
-          controller: feedbackController,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: 'Describe the issue or provide feedback...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (feedbackController.text.trim().isNotEmpty) {
-                // TODO: Implement actual feedback submission to backend
-                Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Thank you for your feedback!'),
-                    backgroundColor: Colors.green,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Submit Feedback'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: subjectController,
+                  decoration: const InputDecoration(
+                    labelText: 'Subject',
+                    hintText: 'Brief title for your feedback',
+                    border: OutlineInputBorder(),
                   ),
-                );
-              }
-            },
-            child: const Text('Submit'),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'general', child: Text('General')),
+                    DropdownMenuItem(value: 'bug', child: Text('Bug Report')),
+                    DropdownMenuItem(
+                        value: 'feature', child: Text('Feature Request')),
+                    DropdownMenuItem(value: 'support', child: Text('Support')),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (value) {
+                    setState(() => selectedCategory = value!);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: messageController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Message',
+                    hintText: 'Describe the issue or provide feedback...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (subjectController.text.trim().isNotEmpty &&
+                    messageController.text.trim().isNotEmpty) {
+                  try {
+                    final feedbackService = FeedbackService();
+                    await feedbackService.submitFeedback(
+                      subject: subjectController.text.trim(),
+                      message: messageController.text.trim(),
+                      category: selectedCategory,
+                    );
+                    Navigator.of(ctx).pop();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Thank you for your feedback!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    Navigator.of(ctx).pop();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to submit feedback: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -256,6 +318,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onTap: _showFeedbackDialog,
                 ),
                 const Divider(height: 1),
+                ListTile(
+                  leading:
+                      Icon(Icons.history, color: theme.colorScheme.primary),
+                  title: const Text('Feedback History'),
+                  subtitle: const Text('View your feedback and responses'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: _showFeedbackHistory,
+                ),
+                const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: SizedBox(
@@ -324,6 +395,126 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  void _showFeedbackHistory() async {
+    try {
+      final feedbackService = FeedbackService();
+      final userFeedback = await feedbackService.fetchAllFeedback();
+
+      // Filter to only show current user's feedback
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      final myFeedback =
+          userFeedback.where((f) => f.userId == currentUserId).toList();
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('My Feedback History'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: myFeedback.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Text('No feedback submitted yet.'),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: myFeedback.length,
+                      itemBuilder: (context, index) {
+                        final feedback = myFeedback[index];
+                        final statusColor = feedback.status == 'pending'
+                            ? Colors.orange
+                            : feedback.status == 'reviewed'
+                                ? Colors.blue
+                                : feedback.status == 'resolved'
+                                    ? Colors.green
+                                    : Colors.grey;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        feedback.subject,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        feedback.status.toUpperCase(),
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Category: ${feedback.category}',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[600]),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Your message:',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12),
+                                ),
+                                Text(
+                                  feedback.message,
+                                  style: const TextStyle(fontSize: 12),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load feedback history: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildSectionHeader(String title, IconData icon, {Color? color}) {

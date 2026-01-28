@@ -11,7 +11,7 @@ import '../services/plastic_service.dart';
 
 // IMPORTANT: Replace this with a BRAND NEW key from Google AI Studio.
 // DO NOT share this key publicly or it will be leaked and disabled again.
-const String _NEW_GEMINI_KEY = "AIzaSyB_wg2sH_ibW5Vzp_as2lqUb3PlEBYcDGY";
+const String _NEW_GEMINI_KEY = "AIzaSyB6OjloqNfljFJvo4YUnr6XqUZ2rkCGXsU";
 const String _MODEL_NAME = "gemini-1.5-flash"; 
 
 class AddPlasticScreen extends StatefulWidget {
