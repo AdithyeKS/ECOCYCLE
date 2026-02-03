@@ -73,4 +73,49 @@ class EwasteItem {
             ? DateTime.tryParse(json['delivered_at'])
             : null,
       );
+
+  // copyWith method to create a modified copy of the object
+  EwasteItem copyWith({
+    String? id,
+    String? userId,
+    String? categoryId,
+    String? itemName,
+    String? description,
+    String? location,
+    String? status,
+    String? imageUrl,
+    String? assignedTo,
+    DateTime? createdAt,
+    int? rewardPoints,
+    Map<String, dynamic>? metadata,
+    String? assignedAgentId,
+    String? assignedNgoId,
+    String? deliveryStatus,
+    List<Map<String, dynamic>>? trackingNotes,
+    DateTime? pickupScheduledAt,
+    DateTime? collectedAt,
+    DateTime? deliveredAt,
+  }) {
+    return EwasteItem(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      categoryId: categoryId ?? this.categoryId,
+      itemName: itemName ?? this.itemName,
+      description: description ?? this.description,
+      location: location ?? this.location,
+      status: status ?? this.status,
+      imageUrl: imageUrl ?? this.imageUrl,
+      assignedTo: assignedTo ?? this.assignedTo,
+      createdAt: createdAt ?? this.createdAt,
+      rewardPoints: rewardPoints ?? this.rewardPoints,
+      metadata: metadata ?? this.metadata,
+      assignedAgentId: assignedAgentId ?? this.assignedAgentId,
+      assignedNgoId: assignedNgoId ?? this.assignedNgoId,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+      trackingNotes: trackingNotes ?? this.trackingNotes,
+      pickupScheduledAt: pickupScheduledAt ?? this.pickupScheduledAt,
+      collectedAt: collectedAt ?? this.collectedAt,
+      deliveredAt: deliveredAt ?? this.deliveredAt,
+    );
+  }
 }

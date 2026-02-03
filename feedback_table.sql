@@ -44,6 +44,11 @@ CREATE POLICY "feedback_admin_update"
   USING (check_is_admin())
   WITH CHECK (check_is_admin());
 
+-- Admins can delete feedback
+CREATE POLICY "feedback_admin_delete"
+  ON feedback FOR DELETE
+  USING (check_is_admin());
+
 -- Insert sample feedback data
 INSERT INTO feedback (user_id, user_email, subject, message, category, status) VALUES
   ('550e8400-e29b-41d4-a716-446655440002', 'user@ecocycle.com', 'App Performance Issue', 'The app is running slow when submitting e-waste items. Please fix this.', 'bug', 'pending'),

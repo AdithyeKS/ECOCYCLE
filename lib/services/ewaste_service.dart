@@ -92,6 +92,21 @@ class EwasteService {
     }
   }
 
+  /// Fetches E-waste items by delivery status.
+  Future<List<EwasteItem>> fetchItemsByDeliveryStatus(String status) async {
+    try {
+      final data = await supabase
+          .from('ewaste_items')
+          .select()
+          .eq('delivery_status', status)
+          .order('created_at', ascending: false);
+      return (data as List).map((e) => EwasteItem.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching e-waste items by status: $e');
+      rethrow;
+    }
+  }
+
   /// Updates the user-facing status of an E-waste item.
   Future<void> updateStatus(String id, String status) async {
     await supabase.from('ewaste_items').update({'status': status}).eq('id', id);
@@ -182,7 +197,7 @@ class EwasteService {
     await supabase.from('ewaste_items').update({
       'assigned_agent_id': agentId,
       'delivery_status': 'assigned',
-      'status': 'Picked', // User status updated to reflect assignment
+      'status': 'assigned', // Fixed: Use valid status from CHECK constraint
     }).eq('id', itemId);
 
     // Send status update notification
@@ -194,7 +209,7 @@ class EwasteService {
 
     final profileService = ProfileService();
     await profileService.sendStatusUpdateNotification(item['user_id'],
-        item['item_name'], 'Picked - Agent assigned for pickup');
+        item['item_name'], 'Assigned - Agent assigned for pickup');
   }
 
   /// Assigns an NGO as the final destination for an E-waste item.
@@ -216,7 +231,7 @@ class EwasteService {
     final now = DateTime.now();
     await supabase.from('ewaste_items').update({
       'delivery_status': 'collected',
-      'status': 'Collected',
+      'status': 'collected',
       'collected_at': now.toIso8601String(),
     }).eq('id', itemId);
 
@@ -229,7 +244,7 @@ class EwasteService {
     final now = DateTime.now();
     await supabase.from('ewaste_items').update({
       'delivery_status': 'delivered',
-      'status': 'Recycled', // Final status
+      'status': 'delivered', // Fixed: Use valid status from CHECK constraint
       'delivered_at': now.toIso8601String(),
     }).eq('id', itemId);
 

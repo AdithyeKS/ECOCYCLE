@@ -63,6 +63,132 @@ class VolunteerScheduleService {
         .toList();
   }
 
+  /// Fetches detailed assignment information including item and user details for volunteers
+  Future<List<Map<String, dynamic>>> fetchDetailedVolunteerAssignments(
+      String volunteerId) async {
+    final response = await _supabase
+        .from('volunteer_assignments')
+        .select()
+        .eq('volunteer_id', volunteerId);
+
+    final List<Map<String, dynamic>> detailedAssignments = [];
+
+    for (final assignmentJson in response as List) {
+      final assignment = VolunteerAssignment.fromJson(assignmentJson);
+      Map<String, dynamic>? item;
+
+      // Query the appropriate table based on waste_type
+      String tableName;
+      switch (assignment.wasteType) {
+        case 'e-waste':
+          tableName = 'ewaste_items';
+          break;
+        case 'plastic':
+          tableName = 'plastic_items';
+          break;
+        case 'cloth':
+          tableName = 'cloth_items';
+          break;
+        default:
+          tableName = 'ewaste_items'; // fallback
+      }
+
+      // Fetch item details
+      final itemResponse = await _supabase
+          .from(tableName)
+          .select(
+              'id, item_name, description, location, image_url, category_id, user_id, pickup_scheduled_at, delivery_status')
+          .eq('id', assignment.wasteItemId)
+          .maybeSingle();
+
+      if (itemResponse != null) {
+        item = itemResponse;
+        // Fetch user profile for the item owner
+        final userProfile = await _supabase
+            .from('profiles')
+            .select('full_name, phone_number')
+            .eq('id', item['user_id'])
+            .maybeSingle();
+
+        detailedAssignments.add({
+          'assignment': assignment,
+          'item': item,
+          'user':
+              userProfile ?? {'full_name': 'Unknown', 'phone_number': 'N/A'},
+        });
+      }
+    }
+
+    return detailedAssignments;
+  }
+
+  /// Fetches detailed assignment information including item and user details for ALL volunteers (admin view)
+  Future<List<Map<String, dynamic>>> fetchAllDetailedAssignments() async {
+    final response = await _supabase.from('volunteer_assignments').select();
+
+    final List<Map<String, dynamic>> detailedAssignments = [];
+
+    for (final assignmentJson in response as List) {
+      final assignment = VolunteerAssignment.fromJson(assignmentJson);
+      Map<String, dynamic>? item;
+      Map<String, dynamic>? userProfile;
+
+      // Query the appropriate table based on waste_type
+      String tableName;
+      switch (assignment.wasteType) {
+        case 'e-waste':
+          tableName = 'ewaste_items';
+          break;
+        case 'plastic':
+          tableName = 'plastic_items';
+          break;
+        case 'cloth':
+          tableName = 'cloth_items';
+          break;
+        default:
+          tableName = 'ewaste_items'; // fallback
+      }
+
+      // Fetch item details
+      final itemResponse = await _supabase
+          .from(tableName)
+          .select(
+              'id, item_name, description, location, image_url, category_id, user_id, pickup_scheduled_at, delivery_status')
+          .eq('id', assignment.wasteItemId)
+          .maybeSingle();
+
+      if (itemResponse != null) {
+        item = itemResponse;
+        // Fetch user profile for the item owner
+        userProfile = await _supabase
+            .from('profiles')
+            .select('full_name, phone_number')
+            .eq('id', item['user_id'])
+            .maybeSingle();
+      }
+
+      // Fetch volunteer profile
+      final volunteerProfile = await _supabase
+          .from('profiles')
+          .select('full_name, phone_number')
+          .eq('id', assignment.volunteerId)
+          .maybeSingle();
+
+      if (item != null) {
+        detailedAssignments.add({
+          'assignment': assignment,
+          'item': item,
+          'user':
+              userProfile ?? {'full_name': 'Unknown', 'phone_number': 'N/A'},
+          'volunteer': volunteerProfile ??
+              {'full_name': 'Unknown Volunteer', 'phone_number': 'N/A'},
+        });
+      }
+    }
+
+    return detailedAssignments;
+  }
+
   /// Allows a volunteer to update the status of their assigned task.
   Future<void> updateAssignmentStatus(
       String assignmentId, String status) async {

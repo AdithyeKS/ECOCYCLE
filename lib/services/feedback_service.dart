@@ -106,6 +106,14 @@ class FeedbackService {
     }
   }
 
+  Future<void> deleteFeedback(String feedbackId) async {
+    try {
+      await _supabase.from('feedback').delete().eq('id', feedbackId);
+    } catch (e) {
+      throw Exception('Failed to delete feedback: $e');
+    }
+  }
+
   Future<String> getFeedbackTableSQL() async {
     // Return the SQL structure of the feedback table
     return '''
@@ -139,6 +147,7 @@ CREATE POLICY "feedback_user_own" ON feedback FOR SELECT USING ((SELECT auth.uid
 CREATE POLICY "feedback_user_insert" ON feedback FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 CREATE POLICY "feedback_admin_view" ON feedback FOR SELECT USING (check_is_admin());
 CREATE POLICY "feedback_admin_update" ON feedback FOR UPDATE USING (check_is_admin()) WITH CHECK (check_is_admin());
+CREATE POLICY "feedback_admin_delete" ON feedback FOR DELETE USING (check_is_admin());
 ''';
   }
 }

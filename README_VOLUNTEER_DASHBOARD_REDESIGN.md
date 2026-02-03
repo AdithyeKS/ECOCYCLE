@@ -248,6 +248,158 @@ The EcoCycle Volunteer Dashboard has been **completely redesigned** with a profe
 1. 🔜 Deploy to production
 2. 🔜 Monitor performance
 3. 🔜 Gather user feedback
+4. 🔜 Implement functional modules (see below)
+
+---
+
+## 🚀 Upcoming Functional Modules
+
+### Module 2: Volunteer Availability Management
+
+**What this module does**  
+This module allows approved volunteers to define when they are available to work, so the system can assign pickups efficiently.
+
+**How it works in the system**
+
+- After a user is approved as a volunteer, an availability section is enabled in their account
+- The volunteer selects one or more dates on which they are available
+- These dates are stored in the database and linked to the volunteer's user ID
+- Volunteers can update or remove availability dates at any time
+- The system also displays upcoming assigned pickups to the volunteer
+
+**Why this is important**
+
+- Prevents assigning work to unavailable volunteers
+- Helps admin make accurate scheduling decisions
+- Improves reliability and reduces missed pickups
+
+### Module 3: User Waste Pickup Request ✅ **COMPLETED**
+
+**What this module does**  
+This module allows users to request waste pickup by providing necessary details.
+
+**How it works in the system**
+
+- The user opens the pickup request form from the home screen
+- The user selects waste category (e-waste, plastic, cloth, etc.)
+- The user uploads waste images using camera or gallery
+- The user provides pickup location (with GPS integration)
+- The user sets preferred pickup date and time
+- When the form is submitted, the request is saved with status "Pending" and becomes visible to the admin
+
+**Implementation Details**
+
+- ✅ Created `UnifiedPickupRequestScreen` with professional UI
+- ✅ Integrated GPS location services with reverse geocoding
+- ✅ Multi-image upload support (camera + gallery)
+- ✅ Category selection with visual cards
+- ✅ Date/time picker with validation
+- ✅ Form validation and error handling
+- ✅ Added prominent "Request Waste Pickup" card to home screen
+
+**Why this is important**
+
+- Collects complete and accurate information
+- Helps volunteers prepare before reaching the location
+- Acts as the starting point for the scheduling workflow
+
+### Module 4: Smart Volunteer Assignment
+
+**What this module does**  
+This module helps the admin assign the best available volunteer for a pickup request.
+
+**How it works in the system**
+
+- Admin opens a pending pickup request
+- The system fetches:
+  - Requested pickup date
+  - Pickup location
+- The system searches volunteers based on:
+  - Availability on the same date
+  - If not available, nearest future date
+- Volunteers are prioritized in this order:
+  - Same-day availability
+  - Nearest available date
+  - Closest location (optional)
+- A suggested volunteer list is shown to the admin
+- Admin manually selects and assigns a volunteer
+- Pickup status changes to "Assigned"
+
+**Why this is important**
+
+- Reduces manual effort for admin
+- Ensures faster pickups
+- Improves overall efficiency
+
+### Module 5: Notification System
+
+**What this module does**  
+This module ensures that all parties are informed whenever an important action occurs.
+
+**How it works in the system**
+
+- When admin assigns a volunteer:
+  - User receives pickup confirmation
+  - Volunteer receives assignment details
+  - Admin receives confirmation
+- Notifications can be sent via:
+  - In-app notifications
+  - SMS / Email (optional)
+- Each notification contains relevant pickup details
+
+**Why this is important**
+
+- Keeps everyone updated
+- Avoids confusion and delays
+- Improves communication and trust
+
+### Module 6: Volunteer Pickup Details & Navigation
+
+**What this module does**  
+This module gives the volunteer all necessary pickup information in one place.
+
+**How it works in the system**
+
+- Assigned volunteer opens the pickup details page
+- The page displays:
+  - User name and phone number
+  - Waste details and photos
+  - Pickup date and time
+  - Location button
+- When the location button is clicked:
+  - Google Maps opens
+  - Navigation starts automatically
+
+**Why this is important**
+
+- Reduces navigation errors
+- Saves time for volunteers
+- Improves pickup accuracy
+
+### Module 9: NGO & Logistics Management
+
+**What this module does**  
+This module manages what happens after pickup, including NGO assignment and waste delivery tracking.
+
+**How it works in the system**
+
+- After pickup confirmation:
+  - Admin selects an NGO center for waste delivery
+  - Admin assigns:
+    - Volunteer
+    - Delivery schedule
+- The system tracks:
+  - Waste type and quantity
+  - Assigned NGO
+  - Delivery status (Pending / In Transit / Delivered)
+- Once delivered:
+  - Status is updated to Completed
+
+**Why this is important**
+
+- Ensures proper waste disposal
+- Maintains accountability
+- Helps in reporting and auditing
 
 ---
 

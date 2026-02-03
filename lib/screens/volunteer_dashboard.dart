@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/ewaste_item.dart';
 import '../models/volunteer_schedule.dart';
 import '../models/volunteer_assignment.dart';
@@ -10,6 +11,11 @@ import '../services/volunteer_schedule_service.dart';
 import '../services/profile_service.dart';
 import '../core/supabase_config.dart';
 import 'login_screen.dart';
+import 'feedback_screen.dart';
+import 'pending_waste_requests_screen.dart';
+import 'assigned_pickup_history_screen.dart';
+
+enum VolunteerTab { home, tasks, schedule, profile }
 
 class VolunteerDashboard extends StatefulWidget {
   const VolunteerDashboard({super.key});
@@ -25,6 +31,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
   List<EwasteItem> _assignedItems = [];
   List<VolunteerSchedule> _schedules = [];
   List<VolunteerAssignment> _assignments = [];
+  List<Map<String, dynamic>> _adminAssignments = [];
   List<VolunteerApplication> _applications = [];
   List<VolunteerSchedule> _allSchedules = [];
   Map<String, String> _userNames = {};
@@ -32,6 +39,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
   bool _isScheduleLoading = false;
   String? _agentId;
   String _userRole = 'user';
+  VolunteerTab _currentTab = VolunteerTab.home;
 
   // Calendar state
   CalendarFormat _calendarFormat = CalendarFormat.month;
@@ -116,9 +124,17 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     if (_agentId == null) return;
 
     try {
-      final assignments =
-          await _scheduleService.fetchVolunteerAssignments(_agentId!);
-      setState(() => _assignments = assignments);
+      if (_userRole == 'admin') {
+        // For admin, fetch all assignments with details
+        final adminAssignments =
+            await _scheduleService.fetchAllDetailedAssignments();
+        setState(() => _adminAssignments = adminAssignments);
+      } else {
+        // For volunteers, fetch their specific assignments
+        final assignments =
+            await _scheduleService.fetchVolunteerAssignments(_agentId!);
+        setState(() => _assignments = assignments);
+      }
     } catch (e) {
       _showSnackbar('Error loading assignments: $e');
     }
@@ -205,6 +221,106 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
       default:
         return Colors.grey;
     }
+  }
+
+  String _getStatusText(String deliveryStatus) {
+    switch (deliveryStatus) {
+      case 'assigned':
+        return 'Assigned';
+      case 'collected':
+        return 'Collected';
+      case 'delivered':
+        return 'Delivered';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  IconData _getStatusIcon(String deliveryStatus) {
+    switch (deliveryStatus) {
+      case 'assigned':
+        return Icons.assignment;
+      case 'collected':
+        return Icons.inventory;
+      case 'delivered':
+        return Icons.check_circle;
+      default:
+        return Icons.help;
+    }
+  }
+
+  Color _getAssignmentStatusColor(String status) {
+    switch (status) {
+      case 'assigned':
+        return Colors.blue;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      case 'pending':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getAssignmentStatusIcon(String status) {
+    switch (status) {
+      case 'assigned':
+        return Icons.assignment_turned_in;
+      case 'completed':
+        return Icons.check_circle;
+      case 'cancelled':
+        return Icons.cancel;
+      case 'pending':
+        return Icons.schedule;
+      default:
+        return Icons.help;
+    }
+  }
+
+  Future<void> _updateAssignmentStatus(
+      String assignmentId, String status) async {
+    try {
+      await _scheduleService.updateAssignmentStatus(assignmentId, status);
+      await _fetchAssignments();
+      _showSnackbar('Assignment status updated to $status');
+    } catch (e) {
+      _showSnackbar('Error updating assignment: $e');
+    }
+  }
+
+  Future<void> _cancelAssignment(String assignmentId, String itemId) async {
+    try {
+      await _scheduleService.cancelAssignment(assignmentId, itemId);
+      await _fetchAssignments();
+      _showSnackbar('Assignment cancelled');
+    } catch (e) {
+      _showSnackbar('Error cancelling assignment: $e');
+    }
+  }
+
+  Widget _buildEmptyState(String message, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 64, color: Colors.grey),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -305,52 +421,643 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
         ),
       );
     } else {
-      // Regular user/volunteer view - Professional UI
-      return DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(tr('volunteer_dashboard_title')),
-            flexibleSpace: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
-                ),
-              ),
+      // Regular user/volunteer view - App Version UI Design with Bottom Navigation
+      return Scaffold(
+        appBar: _buildAppBar(),
+        body: _buildTabContent(),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentTab.index,
+          onTap: (index) =>
+              setState(() => _currentTab = VolunteerTab.values[index]),
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFF2E7D32),
+          unselectedItemColor: Colors.grey.shade400,
+          type: BottomNavigationBarType.fixed,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Home',
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  _fetchAssignedItems();
-                  _fetchSchedules();
-                  _fetchAssignments();
-                },
-                tooltip: tr('refresh'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.assignment),
+              label: 'Tasks',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_month),
+              label: 'Schedule',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  AppBar _buildAppBar() {
+    switch (_currentTab) {
+      case VolunteerTab.home:
+        return AppBar(
+          title: Text(tr('volunteer_dashboard_title')),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
               ),
-              IconButton(
-                icon: const Icon(Icons.logout, color: Colors.white),
-                onPressed: _logout,
-                tooltip: 'Sign Out',
-              ),
-            ],
-            bottom: const TabBar(
-              tabs: [
-                Tab(icon: Icon(Icons.calendar_today), text: 'Schedule'),
-                Tab(icon: Icon(Icons.assignment), text: 'Assignments'),
-                Tab(icon: Icon(Icons.task), text: 'Tasks'),
-              ],
             ),
           ),
-          body: TabBarView(
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                _fetchAssignedItems();
+                _fetchSchedules();
+                _fetchAssignments();
+              },
+              tooltip: tr('refresh'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: _logout,
+              tooltip: 'Sign Out',
+            ),
+          ],
+        );
+      case VolunteerTab.tasks:
+        return AppBar(
+          title: const Text('My Tasks'),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+              ),
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                _fetchAssignedItems();
+                _fetchAssignments();
+              },
+              tooltip: tr('refresh'),
+            ),
+          ],
+        );
+      case VolunteerTab.schedule:
+        return AppBar(
+          title: const Text('My Schedule'),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+              ),
+            ),
+          ),
+        );
+      case VolunteerTab.profile:
+        return AppBar(
+          title: const Text('My Profile'),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+              ),
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: _logout,
+              tooltip: 'Sign Out',
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _buildTabContent() {
+    switch (_currentTab) {
+      case VolunteerTab.home:
+        return _buildHomeTab();
+      case VolunteerTab.tasks:
+        return _buildTasksTab();
+      case VolunteerTab.schedule:
+        return _buildScheduleTab();
+      case VolunteerTab.profile:
+        return _buildProfileTab();
+    }
+  }
+
+  Widget _buildHomeTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.wait([
+          _fetchAssignedItems(),
+          _fetchSchedules(),
+          _fetchAssignments(),
+        ]);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Welcome Header
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.waving_hand,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Welcome back!',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Ready to make a difference today?',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Quick Stats
+            _buildQuickStats(),
+
+            // Management Actions
+            _buildManagementActions(),
+
+            // Today's Assigned Pickups
+            _buildSectionHeader('Today\'s Assigned Pickups', Icons.today),
+            _buildTodaysPickups(),
+
+            // Recent Activity
+            _buildSectionHeader('Recent Activity', Icons.history),
+            _buildRecentActivity(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickStats() {
+    final totalAssignments = _assignments.length;
+    final completedAssignments =
+        _assignments.where((a) => a.status == 'completed').length;
+    final pendingTasks = _assignedItems
+        .where((item) => item.deliveryStatus == 'assigned')
+        .length;
+    final availableDays =
+        _schedules.where((s) => s.isAvailable && s.id.isNotEmpty).length;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              'Active Tasks',
+              pendingTasks.toString(),
+              Icons.assignment,
+              const Color(0xFF2E7D32),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildStatCard(
+              'Completed',
+              completedAssignments.toString(),
+              Icons.check_circle,
+              const Color(0xFF60AD5E),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildStatCard(
+              'Available Days',
+              availableDays.toString(),
+              Icons.calendar_month,
+              const Color(0xFFF59E0B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildManagementActions() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Management Actions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              _buildScheduleTab(),
-              _buildAssignmentsTab(),
-              _buildTasksTab(),
+              Expanded(
+                child: _buildActionButton(
+                  'Pending Waste Requests',
+                  Icons.assignment,
+                  Colors.blue,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PendingWasteRequestsScreen(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  'Assigned History',
+                  Icons.history,
+                  Colors.green,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AssignedPickupHistoryScreen(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  'Feedback',
+                  Icons.feedback,
+                  Colors.orange,
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const FeedbackScreen(),
+                    ),
+                  ),
+                ),
+              ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+      String title, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentActivity() {
+    final recentItems = _assignedItems.take(3).toList();
+    if (recentItems.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text(
+            'No recent activity',
+            style: TextStyle(color: Colors.grey),
           ),
         ),
       );
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: recentItems.map((item) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(item.deliveryStatus)
+                        .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _getStatusIcon(item.deliveryStatus),
+                    color: _getStatusColor(item.deliveryStatus),
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.itemName,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      Text(
+                        _getStatusText(item.deliveryStatus),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildProfileTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Profile Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Volunteer Profile',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Active EcoCycle Volunteer',
+                        style: const TextStyle(
+                          color: Color(0xFFFFFFFF),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Statistics
+          const Text(
+            'Your Impact',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildVolunteerStatsHeader(),
+
+          const SizedBox(height: 24),
+
+          // Quick Actions
+          const Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildQuickActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Column(
+      children: [
+        _buildActionCard(
+          'Set Availability',
+          'Manage your pickup schedule',
+          Icons.calendar_today,
+          () => _showAvailabilityDialog(DateTime.now()),
+        ),
+        const SizedBox(height: 8),
+        _buildActionCard(
+          'Contact Support',
+          'Get help or report issues',
+          Icons.support,
+          () => _launchUrl('mailto:support@ecocycle.com'),
+        ),
+        const SizedBox(height: 8),
+        _buildActionCard(
+          'View Guidelines',
+          'Pickup and safety guidelines',
+          Icons.book,
+          () => _launchUrl('https://ecocycle.com/volunteer-guidelines'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard(
+      String title, String subtitle, IconData icon, VoidCallback onTap) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xFF2E7D32)),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[600])),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _launchUrl(String url) async {
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
     }
   }
 
@@ -1318,32 +2025,6 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     }
   }
 
-  Future<void> _updateAssignmentStatus(
-      String assignmentId, String status) async {
-    try {
-      await _scheduleService.updateAssignmentStatus(assignmentId, status);
-      await _fetchAssignments();
-      _showSnackbar('Assignment status updated');
-    } catch (e) {
-      _showSnackbar('Error updating assignment: $e');
-    }
-  }
-
-  Color _getAssignmentStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'accepted':
-        return Colors.blue;
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
   Future<void> _fetchAllSchedules() async {
     try {
       final schedules = await _scheduleService.fetchAllSchedules();
@@ -1437,37 +2118,6 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: TextStyle(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1674,20 +2324,184 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
   }
 
   Widget _buildAdminAssignmentsTab() {
-    // For admin, show all assignments across all volunteers
-    // This would require fetching all assignments, but for now show a placeholder
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.assignment, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            'Assignments management coming soon',
-            style: TextStyle(fontSize: 18, color: Colors.grey),
+    if (_adminAssignments.isEmpty) {
+      return _buildEmptyState('No assignments found', Icons.assignment);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _adminAssignments.length,
+      itemBuilder: (context, index) {
+        final assignmentData = _adminAssignments[index];
+        final assignment = assignmentData['assignment'] as VolunteerAssignment;
+        final item = assignmentData['item'] as Map<String, dynamic>;
+        final user = assignmentData['user'] as Map<String, dynamic>;
+        final volunteer = assignmentData['volunteer'] as Map<String, dynamic>;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          elevation: 3,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Assignment header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _getAssignmentStatusColor(assignment.status)
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _getAssignmentStatusIcon(assignment.status),
+                        color: _getAssignmentStatusColor(assignment.status),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item['item_name'] ?? 'Unknown Item',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Status: ${assignment.status}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // User and Volunteer info
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'User',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          Text(
+                            user['full_name'] ?? 'Unknown User',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            user['phone_number'] ?? 'N/A',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Volunteer',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          Text(
+                            volunteer['full_name'] ?? 'Unknown Volunteer',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            volunteer['phone_number'] ?? 'N/A',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Location and actions
+                Row(
+                  children: [
+                    Icon(Icons.location_on, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        item['location'] ?? 'No location',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Action buttons
+                Row(
+                  children: [
+                    if (assignment.status == 'assigned')
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _updateAssignmentStatus(
+                              assignment.id, 'completed'),
+                          icon: const Icon(Icons.check, size: 16),
+                          label: const Text('Mark Complete',
+                              style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () =>
+                            _cancelAssignment(assignment.id, item['id']),
+                        icon: const Icon(Icons.cancel, size: 16),
+                        label: const Text('Cancel',
+                            style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1700,5 +2514,95 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
     } catch (e) {
       _showSnackbar('Error processing application: $e');
     }
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: const Color(0xFF2E7D32), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodaysPickups() {
+    final today = DateTime.now();
+    final todaysAssignments = _assignments.where((assignment) {
+      if (assignment.scheduledDate == null) return false;
+      return assignment.scheduledDate!.year == today.year &&
+          assignment.scheduledDate!.month == today.month &&
+          assignment.scheduledDate!.day == today.day;
+    }).toList();
+
+    if (todaysAssignments.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text(
+            'No pickups scheduled for today',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: todaysAssignments.map((assignment) {
+          return Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            elevation: 2,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color:
+                      _getStatusColor(assignment.status).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getStatusIcon(assignment.status),
+                  color: _getStatusColor(assignment.status),
+                ),
+              ),
+              title: Text('Pickup Assignment'),
+              subtitle: Text('Status: ${assignment.status}'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                // TODO: Implement order details view
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Order details for ${assignment.id}')),
+                );
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 }

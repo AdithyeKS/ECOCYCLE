@@ -3,6 +3,7 @@ import 'package:EcoCycle/app_theme.dart';
 import 'package:EcoCycle/core/supabase_config.dart';
 import 'package:EcoCycle/screens/home_shell.dart';
 import 'package:EcoCycle/screens/login_screen.dart';
+import 'package:EcoCycle/screens/splash_screen.dart';
 import 'package:EcoCycle/screens/update_password_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -53,23 +54,10 @@ class _EcoCycleAppState extends State<EcoCycleApp> {
       builder: (context, snapshot) {
         // FIX: Show a loading indicator until the initial authentication state is resolved.
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // Return a minimal MaterialApp with a loading screen while Supabase checks the session.
+          // Return a minimal MaterialApp with the splash screen while Supabase checks the session.
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            home: Scaffold(
-              backgroundColor: Colors.green[700],
-              body: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Uses the app logo from the assets
-                    Image.asset('assets/images/ecocycle.png', width: 150),
-                    const SizedBox(height: 20),
-                    const CircularProgressIndicator(color: Colors.white),
-                  ],
-                ),
-              ),
-            ),
+            home: const SplashScreen(),
           );
         }
 
@@ -92,7 +80,7 @@ class _EcoCycleAppState extends State<EcoCycleApp> {
         }
 
         return MaterialApp(
-          title: tr('app_title'),
+          title: 'EcoCycle',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,

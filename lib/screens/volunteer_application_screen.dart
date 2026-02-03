@@ -116,7 +116,8 @@ class _VolunteerApplicationScreenState
 
     if (!_agreedToPolicy) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('You must agree to the Terms & Conditions to proceed.')));
+          content:
+              Text('You must agree to the Terms & Conditions to proceed.')));
       return;
     }
 
@@ -182,8 +183,14 @@ class _VolunteerApplicationScreenState
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Theme.of(context).colorScheme.primary.withOpacity(0.8),
-                        Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                        Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withAlpha((0.8 * 255).round()),
+                        Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withAlpha((0.4 * 255).round()),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -192,7 +199,8 @@ class _VolunteerApplicationScreenState
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.volunteer_activism, size: 64, color: Colors.white),
+                      const Icon(Icons.volunteer_activism,
+                          size: 64, color: Colors.white),
                       const SizedBox(height: 16),
                       const Text(
                         'Make a Difference Today',
@@ -208,7 +216,7 @@ class _VolunteerApplicationScreenState
                         'Join our community of volunteers in the fight against waste. Help collect and manage e-waste and clothes, making our environment cleaner and greener.',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withAlpha((0.9 * 255).round()),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -221,7 +229,8 @@ class _VolunteerApplicationScreenState
               // Personal Information Section
               Card(
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -242,7 +251,8 @@ class _VolunteerApplicationScreenState
                             labelText: 'Your Name',
                             prefixIcon: Icon(Icons.person),
                             border: OutlineInputBorder()),
-                        validator: (v) => (v?.isEmpty ?? true) ? 'Name is required' : null,
+                        validator: (v) =>
+                            (v?.isEmpty ?? true) ? 'Name is required' : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -252,7 +262,8 @@ class _VolunteerApplicationScreenState
                             labelText: 'Contact Number',
                             prefixIcon: Icon(Icons.phone),
                             border: OutlineInputBorder()),
-                        validator: (v) => (v?.isEmpty ?? true) ? 'Phone is required' : null,
+                        validator: (v) =>
+                            (v?.isEmpty ?? true) ? 'Phone is required' : null,
                       ),
                     ],
                   ),
@@ -263,7 +274,8 @@ class _VolunteerApplicationScreenState
               // Availability and Motivation Cards...
               Card(
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -271,7 +283,8 @@ class _VolunteerApplicationScreenState
                     children: [
                       const Text(
                         'Availability & Motivation',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       const SizedBox(height: 16),
                       ListTile(
@@ -279,7 +292,8 @@ class _VolunteerApplicationScreenState
                         title: Text(_selectedDate == null
                             ? 'When can you start?'
                             : 'Starting: ${DateFormat('MMM d, yyyy').format(_selectedDate!)}'),
-                        trailing: TextButton(onPressed: _pickDate, child: const Text('SELECT')),
+                        trailing: TextButton(
+                            onPressed: _pickDate, child: const Text('SELECT')),
                         shape: RoundedRectangleBorder(
                             side: const BorderSide(color: Colors.grey),
                             borderRadius: BorderRadius.circular(8)),
@@ -292,7 +306,9 @@ class _VolunteerApplicationScreenState
                           labelText: 'Why do you want to volunteer?',
                           border: OutlineInputBorder(),
                         ),
-                        validator: (v) => (v?.isEmpty ?? true) ? 'Motivation is required' : null,
+                        validator: (v) => (v?.isEmpty ?? true)
+                            ? 'Motivation is required'
+                            : null,
                       ),
                     ],
                   ),
@@ -303,7 +319,8 @@ class _VolunteerApplicationScreenState
               // Agreement Section
               Card(
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -311,17 +328,19 @@ class _VolunteerApplicationScreenState
                     children: [
                       const Text(
                         'Terms & Agreement',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       const SizedBox(height: 16),
                       Container(
                         decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.05),
+                            color: Colors.blue.withAlpha((0.05 * 255).round()),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.blue.shade100)),
                         child: CheckboxListTile(
                           value: _agreedToPolicy,
-                          onChanged: (v) => setState(() => _agreedToPolicy = v!),
+                          onChanged: (v) =>
+                              setState(() => _agreedToPolicy = v!),
                           title: const Text(
                               'I agree to the Terms of Service and Security Conditions.',
                               style: TextStyle(fontSize: 14)),
@@ -343,10 +362,12 @@ class _VolunteerApplicationScreenState
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
-                  style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                  style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16)),
                   child: _isSubmitting
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('BECOME A VOLUNTEER', style: TextStyle(fontWeight: FontWeight.bold)),
+                      : const Text('BECOME A VOLUNTEER',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],

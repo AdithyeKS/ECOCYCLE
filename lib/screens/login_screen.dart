@@ -3,6 +3,7 @@ import 'package:EcoCycle/core/supabase_config.dart';
 import 'package:EcoCycle/screens/forgot_password_screen.dart';
 import 'package:EcoCycle/screens/home_shell.dart';
 import 'package:EcoCycle/screens/signup_screen.dart';
+import 'package:EcoCycle/screens/volunteer_choice_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,13 +26,29 @@ class _LoginScreenState extends State<LoginScreen> {
       RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
   String _mapAuthError(String rawError) {
-    if (rawError.contains('Invalid login credentials')) {
-      return 'Incorrect email or password. If you don\'t have an account, please create one.';
+    final lowerError = rawError.toLowerCase();
+
+    if (lowerError.contains('invalid login credentials') ||
+        lowerError.contains('invalid password') ||
+        lowerError.contains('user not found')) {
+      return 'Invalid email or password. Please check and try again.';
     }
-    if (rawError.contains('Email not confirmed')) {
-      return 'Email not verified. Please check your inbox (and spam folder).';
+    if (lowerError.contains('email not confirmed') ||
+        lowerError.contains('email not verified')) {
+      return 'Your email hasn\'t been verified yet. Please check your inbox for a verification email.';
     }
-    return 'Login failed. Check your connection or contact support.';
+    if (lowerError.contains('user already exists')) {
+      return 'This email is already registered. Please log in or use a different email.';
+    }
+    if (lowerError.contains('password')) {
+      return 'There\'s an issue with your password. Please try again or reset it.';
+    }
+    if (lowerError.contains('network') ||
+        lowerError.contains('connection') ||
+        lowerError.contains('timeout')) {
+      return 'Network connection error. Please check your internet and try again.';
+    }
+    return 'Unable to log in at this time. Please try again later.';
   }
 
   Future<void> _login() async {
@@ -47,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _password.text,
       );
 
-      // CRITICAL FIX: Ensure the profile exists and has a role set upon login.
+      // CRITICAL FIX: Ensure the profile exists and check for approved volunteer application upon login.
       // This helps mitigate race conditions where HomeShell might load faster than the DB update.
       final user = authResponse.user;
       if (user != null) {
@@ -262,10 +279,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             keyboardType: TextInputType.emailAddress,
                             validator: (v) {
                               if (v == null || v.isEmpty) {
-                                return 'Email is required to log in.';
+                                return 'Please enter your email address.';
                               }
                               if (v.length < 5 || !v.contains('@')) {
-                                return 'Please ensure the input resembles an email.';
+                                return 'Please enter a valid email address.';
                               }
                               return null;
                             },
@@ -291,7 +308,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             obscureText: _obscurePassword,
                             validator: (v) => (v == null || v.isEmpty)
-                                ? 'Password is required to log in.'
+                                ? 'Please enter your password.'
                                 : null,
                           ),
                           const SizedBox(height: 8),

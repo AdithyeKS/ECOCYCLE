@@ -41,8 +41,7 @@ class ClothService {
     final isAcceptable = estimatedDamagePercent <= 80;
 
     // Assign status based on acceptance (Can be manually reviewed later by admin)
-    final initialStatus =
-        isAcceptable ? 'Pending Review' : 'Rejected (High Damage)';
+    final initialStatus = isAcceptable ? 'Pending' : 'Rejected';
 
     await supabase.from('cloth_donations').insert({
       'user_id': userId,
@@ -82,10 +81,61 @@ class ClothService {
     }
   }
 
+  /// Fetches cloth items by delivery status.
+  Future<List<ClothItem>> fetchItemsByDeliveryStatus(String status) async {
+    try {
+      final data = await supabase
+          .from('cloth_donations')
+          .select()
+          .eq('delivery_status', status)
+          .order('created_at', ascending: false);
+      return (data as List).map((e) => ClothItem.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching cloth items by status: $e');
+      rethrow;
+    }
+  }
+
   // Admin/Agent method to update status (Placeholder integration)
   Future<void> updateStatus(int itemId, String newStatus) async {
     await supabase
         .from('cloth_donations')
         .update({'status': newStatus}).eq('id', itemId);
+  }
+
+  /// Assigns a Pickup Agent to a cloth donation.
+  Future<void> assignPickupAgent(String itemId, String agentId) async {
+    await supabase.from('cloth_donations').update({
+      'assigned_agent_id': agentId,
+      'delivery_status': 'assigned',
+      'status': 'Approved', // Valid status for cloth_donations
+    }).eq('id', itemId);
+  }
+
+  /// Assigns an NGO as the final destination for a cloth donation.
+  Future<void> assignNgo(String itemId, String ngoId) async {
+    await supabase.from('cloth_donations').update({
+      'assigned_ngo_id': ngoId,
+    }).eq('id', itemId);
+  }
+
+  /// Marks a cloth donation as collected by the agent.
+  Future<void> markAsCollected(String itemId) async {
+    final now = DateTime.now();
+    await supabase.from('cloth_donations').update({
+      'delivery_status': 'collected',
+      'status': 'Collected', // Valid status for cloth_donations
+      'collected_at': now.toIso8601String(),
+    }).eq('id', itemId);
+  }
+
+  /// Marks a cloth donation as delivered to the NGO.
+  Future<void> markAsDelivered(String itemId) async {
+    final now = DateTime.now();
+    await supabase.from('cloth_donations').update({
+      'delivery_status': 'delivered',
+      'status': 'Donated', // Valid status for cloth_donations
+      'delivered_at': now.toIso8601String(),
+    }).eq('id', itemId);
   }
 }

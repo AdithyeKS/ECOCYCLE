@@ -26,9 +26,36 @@ class _SignupScreenState extends State<SignupScreen> {
     r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+={}|:;<>,.?/~])(?!.*\s).{8,}$',
   );
   static final _nameRegex = RegExp(r'^[A-Z][a-zA-Z\s]*$');
-  static final _phoneRegex = RegExp(r'^\d{8,15}$');
+  static final _phoneRegex = RegExp(r'^\d{10}$');
   static final _emailRegex =
-      RegExp(r'^[a-zA-Z0-Z9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+      RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+
+  String _mapSignupError(String rawError) {
+    final lowerError = rawError.toLowerCase();
+
+    if (lowerError.contains('already registered') ||
+        lowerError.contains('user_already_exists') ||
+        lowerError.contains('already exists')) {
+      return 'This email is already registered. Please log in instead.';
+    }
+    if (lowerError.contains('invalid email') ||
+        lowerError.contains('email format')) {
+      return 'Please enter a valid email address.';
+    }
+    if (lowerError.contains('weak password') ||
+        lowerError.contains('password')) {
+      return 'Your password doesn\'t meet our security requirements. Please use a stronger password.';
+    }
+    if (lowerError.contains('network') ||
+        lowerError.contains('connection') ||
+        lowerError.contains('timeout')) {
+      return 'Network connection error. Please check your internet and try again.';
+    }
+    if (lowerError.contains('validation')) {
+      return 'Please check all your information and try again.';
+    }
+    return 'Unable to create account at this time. Please try again later.';
+  }
 
   Future<void> _signup() async {
     if (!_form.currentState!.validate()) return;
@@ -66,7 +93,7 @@ class _SignupScreenState extends State<SignupScreen> {
       }
     } catch (e) {
       setState(() {
-        _msg = e.toString();
+        _msg = _mapSignupError(e.toString());
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -146,8 +173,10 @@ class _SignupScreenState extends State<SignupScreen> {
     final passwordText = _password.text;
 
     final hasMinLength = passwordText.length >= 8;
-    final hasUppercase = _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
-    final hasLowercase = _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
+    final hasUppercase =
+        _checkPasswordRequirement(passwordText, RegExp(r'[A-Z]'));
+    final hasLowercase =
+        _checkPasswordRequirement(passwordText, RegExp(r'[a-z]'));
     final hasNumber = _checkPasswordRequirement(passwordText, RegExp(r'\d'));
     final hasSpecialChar = _checkPasswordRequirement(
         passwordText, RegExp(r'[!@#$%^&*()_+={}|:;<>,.?/~]'));
@@ -191,12 +220,14 @@ class _SignupScreenState extends State<SignupScreen> {
                           Center(
                             child: Column(
                               children: [
-                                Image.asset('assets/images/ecocycle.png', height: 80),
+                                Image.asset('assets/images/ecocycle.png',
+                                    height: 80),
                                 const SizedBox(height: 16),
                                 Text('Create Account',
-                                    style: theme.textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.primary)),
+                                    style: theme.textTheme.headlineMedium
+                                        ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.colorScheme.primary)),
                                 const SizedBox(height: 8),
                                 Text('Sign up to join our recycling community',
                                     style: theme.textTheme.bodyMedium),
@@ -211,8 +242,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                 labelText: 'Full name',
                                 prefixIcon: Icons.person_outline),
                             validator: (v) {
-                              if (v == null || v.trim().length < 3) return 'Min 3 characters';
-                              if (!_nameRegex.hasMatch(v.trim())) return 'Capitalize first letter';
+                              if (v == null || v.trim().length < 3)
+                                return 'Please enter at least 3 characters.';
+                              if (!_nameRegex.hasMatch(v.trim()))
+                                return 'Please start with a capital letter.';
                               return null;
                             },
                           ),
@@ -224,8 +257,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                 labelText: 'Mobile number',
                                 prefixIcon: Icons.phone_outlined),
                             keyboardType: TextInputType.phone,
-                            validator: (v) => (v == null || !_phoneRegex.hasMatch(v.trim()))
-                                ? 'Enter valid 8-15 digits' : null,
+                            validator: (v) => (v == null ||
+                                    !_phoneRegex.hasMatch(v.trim()))
+                                ? 'Please enter a valid phone number (exactly 10 digits).'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           // Email
@@ -235,8 +270,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                 labelText: 'Email',
                                 prefixIcon: Icons.email_outlined),
                             keyboardType: TextInputType.emailAddress,
-                            validator: (v) => (v == null || !_emailRegex.hasMatch(v.trim()))
-                                ? 'Enter a valid email' : null,
+                            validator: (v) =>
+                                (v == null || !_emailRegex.hasMatch(v.trim()))
+                                    ? 'Please enter a valid email address.'
+                                    : null,
                           ),
                           const SizedBox(height: 16),
                           // NEW: Address Field
@@ -247,7 +284,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                 labelText: 'Residential Address',
                                 prefixIcon: Icons.location_on_outlined),
                             validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Address is required' : null,
+                                ? 'Please enter your residential address.'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           // Password Field
@@ -258,36 +296,79 @@ class _SignupScreenState extends State<SignupScreen> {
                               labelText: 'Password',
                               prefixIcon: Icons.lock_outline,
                               suffixIcon: IconButton(
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                                onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword),
+                                icon: Icon(_obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
                               ),
                             ),
                             obscureText: _obscurePassword,
-                            validator: (v) => (v == null || !_passwordRegex.hasMatch(v))
-                                ? 'Password requirements not met' : null,
+                            validator: (v) => (v == null ||
+                                    !_passwordRegex.hasMatch(v))
+                                ? 'Password must meet all requirements below'
+                                : null,
                           ),
                           // Password requirements display...
                           if (passwordText.isNotEmpty) ...[
                             const SizedBox(height: 8),
-                            _buildPasswordRequirement('Min 8 chars', hasMinLength),
-                            _buildPasswordRequirement('One Uppercase', hasUppercase),
-                            _buildPasswordRequirement('One Number', hasNumber),
-                            _buildPasswordRequirement('One Special Symbol', hasSpecialChar),
+                            _buildPasswordRequirement(
+                                'At least 8 characters', hasMinLength),
+                            _buildPasswordRequirement(
+                                'One uppercase letter', hasUppercase),
+                            _buildPasswordRequirement(
+                                'One lowercase letter', hasLowercase),
+                            _buildPasswordRequirement('One number', hasNumber),
+                            _buildPasswordRequirement(
+                                'One special character (!@#\$%...)',
+                                hasSpecialChar),
                           ],
                           const SizedBox(height: 24),
                           if (_msg != null)
-                            Text(_msg!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade900.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: Colors.red.shade400, width: 1),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.error_outline,
+                                      color: Colors.red.shade400, size: 20),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _msg!,
+                                      style: TextStyle(
+                                        color: Colors.red.shade400,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 16),
                           FilledButton(
                             onPressed: _busy ? null : _signup,
                             style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16)),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16)),
                             child: _busy
-                                ? const CircularProgressIndicator(color: Colors.white)
-                                : const Text('Sign up', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                : const Text('Sign up',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(height: 16),
                           OutlinedButton(
-                            onPressed: _busy ? null : () => Navigator.pop(context),
+                            onPressed:
+                                _busy ? null : () => Navigator.pop(context),
                             child: const Text('Already have an account?'),
                           ),
                         ],

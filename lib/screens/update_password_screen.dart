@@ -61,6 +61,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(tr('password_update_success')),
+            backgroundColor: Colors.green.shade400,
           ),
         );
       }
@@ -68,12 +69,30 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
       if (mounted) {
         setState(() {
           // Only show the message if it's an error and not successful redirection
-          _msg = 'Error updating password: ${e.toString()}';
+          _msg = _mapPasswordUpdateError(e.toString());
         });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  String _mapPasswordUpdateError(String rawError) {
+    final lowerError = rawError.toLowerCase();
+
+    if (lowerError.contains('weak password') ||
+        lowerError.contains('password')) {
+      return 'Your password doesn\'t meet security requirements. Please use a stronger password.';
+    }
+    if (lowerError.contains('session')) {
+      return 'Your session has expired. Please request a new password reset link.';
+    }
+    if (lowerError.contains('network') ||
+        lowerError.contains('connection') ||
+        lowerError.contains('timeout')) {
+      return 'Network connection error. Please check your internet and try again.';
+    }
+    return 'Unable to update password. Please try again or contact support.';
   }
 
   // Helper widget to display password requirements
@@ -276,10 +295,10 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                             obscureText: _obscurePassword,
                             validator: (v) {
                               if (v == null || v.length < 8) {
-                                return 'Minimum 8 characters required.';
+                                return 'Password must be at least 8 characters long.';
                               }
                               if (!_passwordRegex.hasMatch(v)) {
-                                return 'Password must meet all security requirements.';
+                                return 'Password must meet all requirements below.';
                               }
                               return null;
                             },
@@ -293,23 +312,23 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Password requirements:',
+                                  Text('Your password must include:',
                                       style: TextStyle(
                                           color: theme.hintColor,
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500)),
                                   _buildPasswordRequirement(
-                                      'Minimum 8 characters', hasMinLength),
+                                      'At least 8 characters', hasMinLength),
                                   _buildPasswordRequirement(
-                                      'At least one uppercase letter (A-Z)',
+                                      'One uppercase letter (A-Z)',
                                       hasUppercase),
                                   _buildPasswordRequirement(
-                                      'At least one lowercase letter (a-z)',
+                                      'One lowercase letter (a-z)',
                                       hasLowercase),
                                   _buildPasswordRequirement(
-                                      'At least one number (0-9)', hasNumber),
+                                      'One number (0-9)', hasNumber),
                                   _buildPasswordRequirement(
-                                      'At least one special symbol',
+                                      'One special symbol (!@#\$%...)',
                                       hasSpecialChar),
                                 ],
                               ),
@@ -322,7 +341,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                           TextFormField(
                             controller: _confirmPasswordController,
                             decoration: _customInputDecoration(
-                              labelText: tr('confirm_password'),
+                              labelText: 'Confirm Password',
                               prefixIcon: Icons.lock_reset,
                               suffixIcon: IconButton(
                                 onPressed: () => setState(() =>
@@ -339,7 +358,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                             obscureText: _obscureConfirmPassword,
                             validator: (v) {
                               if (v != _passwordController.text) {
-                                return tr('passwords_do_not_match');
+                                return 'Passwords do not match. Please re-enter.';
                               }
                               return null;
                             },
@@ -349,10 +368,32 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                           if (_msg != null) ...[
                             Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: Text(
-                                _msg!,
-                                style: const TextStyle(color: Colors.red),
-                                textAlign: TextAlign.center,
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade900.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: Colors.red.shade400, width: 1),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.error_outline,
+                                        color: Colors.red.shade400, size: 20),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _msg!,
+                                        style: TextStyle(
+                                          color: Colors.red.shade400,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],

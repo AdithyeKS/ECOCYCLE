@@ -2,13 +2,15 @@ class ClothItem {
   final int? id;
   final String userId;
   final String type; // e.g., Apparel, Linen, Accessories
-  final int quantity; // Number of items or weight in kg (simple integer for now)
+  final int
+      quantity; // Number of items or weight in kg (simple integer for now)
   final String condition; // e.g., Good, Fair, Poor (user's input)
   final String location;
   final String status; // Pending, Collected, Donated
   final DateTime createdAt;
   final String? imageUrl; // NEW
   final int? damagePercent; // NEW (AI estimate)
+  final String deliveryStatus;
 
   ClothItem({
     this.id,
@@ -21,6 +23,7 @@ class ClothItem {
     required this.createdAt,
     this.imageUrl,
     this.damagePercent,
+    this.deliveryStatus = 'pending',
   });
 
   factory ClothItem.fromJson(Map<String, dynamic> json) => ClothItem(
@@ -34,6 +37,7 @@ class ClothItem {
         createdAt: DateTime.parse(json['created_at'] as String),
         imageUrl: json['image_url'] as String?, // NEW
         damagePercent: json['damage_percent'] as int?, // NEW
+        deliveryStatus: json['delivery_status'] ?? 'pending',
       );
 
   Map<String, dynamic> toJson() => {
@@ -46,5 +50,6 @@ class ClothItem {
         'created_at': createdAt.toIso8601String(),
         'image_url': imageUrl, // NEW
         'damage_percent': damagePercent, // NEW
+        'delivery_status': deliveryStatus,
       };
 }

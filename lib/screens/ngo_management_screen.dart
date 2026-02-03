@@ -219,6 +219,7 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _districtController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
@@ -227,6 +228,7 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _districtController.dispose();
     _addressController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -241,6 +243,7 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
+        district: _districtController.text,
         address: _addressController.text,
         phone: _phoneController.text.isEmpty ? null : _phoneController.text,
         email: _emailController.text.isEmpty ? null : _emailController.text,

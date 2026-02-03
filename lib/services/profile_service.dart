@@ -120,20 +120,40 @@ class ProfileService {
   /// Fetches all profiles for admin management.
   Future<List<Map<String, dynamic>>> fetchAllProfiles() async {
     try {
-      final data = await supabase
-          .from('admin_user_details')
-          .select(
-              'id, full_name, user_role, phone_number, address, total_points, created_at, email')
-          .order('full_name', ascending: true);
+      try {
+        // Try to fetch from admin_user_details view first
+        final data = await supabase
+            .from('admin_user_details')
+            .select(
+                'id, full_name, email, user_role, phone_number, address, total_points, created_at')
+            .order('full_name', ascending: true);
 
-      final List<Map<String, dynamic>> profiles =
-          (data as List).cast<Map<String, dynamic>>();
+        final List<Map<String, dynamic>> profiles =
+            (data as List).cast<Map<String, dynamic>>();
 
-      print('✓ Profiles fetched successfully: ${profiles.length} profiles');
-      return profiles;
+        print(
+            '✓ Profiles fetched successfully from admin_user_details: ${profiles.length} profiles');
+        return profiles;
+      } catch (viewError) {
+        // Fallback to profiles table if view doesn't exist
+        print(
+            '⚠️ admin_user_details view not available, using profiles table: $viewError');
+        final data = await supabase
+            .from('profiles')
+            .select(
+                'id, full_name, user_role, phone_number, address, total_points, created_at')
+            .order('full_name', ascending: true);
+
+        final List<Map<String, dynamic>> profiles =
+            (data as List).cast<Map<String, dynamic>>();
+
+        print(
+            '✓ Profiles fetched successfully from profiles table: ${profiles.length} profiles');
+        return profiles;
+      }
     } catch (e) {
       print('✗ Error fetching profiles: $e');
-      rethrow;
+      return []; // Return empty list instead of rethrowing to prevent cascading failures
     }
   }
 
@@ -170,7 +190,7 @@ class ProfileService {
           .toList();
     } catch (e) {
       print('✗ Error fetching volunteer applications: $e');
-      rethrow;
+      return []; // Return empty list instead of rethrowing to prevent cascading failures
     }
   }
 
@@ -186,11 +206,31 @@ class ProfileService {
           .from('volunteer_applications')
           .update({'status': newStatus}).eq('id', appId);
 
-      // 2. Update the user role
-      await supabase.from('profiles').update({
-        'user_role': newRole,
-        'volunteer_requested_at': null,
-      }).eq('id', userId);
+      // 2. Update the user role (only update role and timestamp)
+      final existingProfile = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (existingProfile != null) {
+        await supabase.from('profiles').update({
+          'user_role': newRole,
+          'volunteer_requested_at': null,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', userId);
+      } else {
+        // Create profile if it doesn't exist
+        await supabase.from('profiles').insert({
+          'id': userId,
+          'user_role': newRole,
+          'volunteer_requested_at': null,
+          'full_name': 'Unknown',
+          'phone_number': 'N/A',
+          'address': 'N/A',
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
 
       // 3. If approved, create pickup request entry
       if (approve) {
@@ -294,6 +334,15 @@ class ProfileService {
     } catch (e) {
       print('ERROR deleting user $userId: $e');
       rethrow;
+    }
+  }
+
+  /// Deletes a volunteer application
+  Future<void> deleteVolunteerApplication(String appId) async {
+    try {
+      await supabase.from('volunteer_applications').delete().eq('id', appId);
+    } catch (e) {
+      throw Exception('Failed to delete volunteer application: $e');
     }
   }
 

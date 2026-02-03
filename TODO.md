@@ -1,12 +1,14 @@
-# TODO: Fix decideOnApplication Error
+# Splash Screen Update TODO
 
 ## Completed Tasks
 
-- [x] Identified the root cause: updateProfile() method using upsert without setting user_role, causing constraint violation when inserting new profiles
-- [x] Fixed updateProfile() to include 'user_role': 'user' in the upsert operation
+- [x] Modified lib/main.dart to update splash screen
+- [x] Removed large app logo and app name
+- [x] Added centered rotating progress indicator with download icon
+- [x] Added clean "Loading..." text below the icon
+- [x] Implemented gradient background using green shades
 
-## Next Steps
+## Followup Steps
 
-- [ ] Test the fix by running the application and attempting to approve/reject a volunteer application
-- [ ] Verify that the constraint violation no longer occurs
-- [ ] If issues persist, check if the database schema needs to be updated to include 'volunteer' in the check constraint
+- [x] Test the app launch to verify splash screen appearance
+- [x] Ensure gradient matches app theme and looks good

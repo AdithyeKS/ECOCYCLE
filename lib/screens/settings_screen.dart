@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:EcoCycle/screens/profile_screen.dart';
+import 'package:EcoCycle/screens/mission_screen.dart';
 import 'package:EcoCycle/screens/login_screen.dart';
 import 'package:EcoCycle/services/feedback_service.dart';
-import 'package:EcoCycle/models/feedback.dart';
+// import 'package:EcoCycle/models/feedback.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -253,6 +254,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const Divider(height: 1),
+                ListTile(
+                  leading: Icon(Icons.flag, color: theme.colorScheme.primary),
+                  title: const Text('Our Mission'),
+                  subtitle: const Text('Learn about our vision and goals'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MissionScreen(),
+                      ),
+                    );
+                  },
+                ),
                 ListTile(
                   leading:
                       Icon(Icons.language, color: theme.colorScheme.primary),

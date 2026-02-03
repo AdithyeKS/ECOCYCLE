@@ -9,6 +9,7 @@ class PlasticItem {
   final String status;
   final int points;
   final DateTime createdAt;
+  final String deliveryStatus;
 
   PlasticItem({
     required this.id,
@@ -21,18 +22,20 @@ class PlasticItem {
     this.status = 'pending',
     this.points = 0,
     required this.createdAt,
+    this.deliveryStatus = 'pending',
   });
 
   factory PlasticItem.fromJson(Map<String, dynamic> json) => PlasticItem(
-    id: json['id'],
-    userId: json['user_id'],
-    plasticType: json['plastic_type'],
-    itemName: json['item_name'],
-    description: json['description'],
-    location: json['location'],
-    imageUrl: json['image_url'],
-    status: json['status'],
-    points: json['points'] ?? 0,
-    createdAt: DateTime.parse(json['created_at']),
-  );
+        id: json['id'],
+        userId: json['user_id'],
+        plasticType: json['plastic_type'],
+        itemName: json['item_name'],
+        description: json['description'],
+        location: json['location'],
+        imageUrl: json['image_url'],
+        status: json['status'],
+        points: json['points'] ?? 0,
+        createdAt: DateTime.parse(json['created_at']),
+        deliveryStatus: json['delivery_status'] ?? 'pending',
+      );
 }

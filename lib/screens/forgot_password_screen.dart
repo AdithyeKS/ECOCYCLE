@@ -31,12 +31,32 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await AppSupabase.client.auth.resetPasswordForEmail(
         _email.text.trim(),
       );
-      _msg = 'Password reset link sent to your email (check inbox/spam).';
+      _msg =
+          'Password reset link has been sent to your email. Please check your inbox and spam folder.';
     } catch (e) {
-      _msg = e.toString();
+      _msg = _mapPasswordResetError(e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  String _mapPasswordResetError(String rawError) {
+    final lowerError = rawError.toLowerCase();
+
+    if (lowerError.contains('user not found') ||
+        lowerError.contains('not found')) {
+      return 'No account found with this email address.';
+    }
+    if (lowerError.contains('invalid email') ||
+        lowerError.contains('email format')) {
+      return 'Please enter a valid email address.';
+    }
+    if (lowerError.contains('network') ||
+        lowerError.contains('connection') ||
+        lowerError.contains('timeout')) {
+      return 'Network connection error. Please check your internet and try again.';
+    }
+    return 'Unable to send reset link at this time. Please try again later.';
   }
 
   // Custom Input Decoration for the sleek look
@@ -188,10 +208,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             // ADD: Validator for required email format
                             validator: (v) {
                               if (v == null || v.isEmpty) {
-                                return 'Email is required';
+                                return 'Please enter your email address.';
                               }
                               if (!_emailRegex.hasMatch(v.trim())) {
-                                return 'Enter a valid email format';
+                                return 'Please enter a valid email address.';
                               }
                               return null;
                             },
@@ -200,12 +220,48 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                           if (_msg != null) ...[
                             const SizedBox(height: 8),
-                            Text(_msg!,
-                                style: TextStyle(
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: _msg!.contains('sent')
+                                    ? Colors.green.shade900.withOpacity(0.15)
+                                    : Colors.red.shade900.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _msg!.contains('sent')
+                                      ? Colors.green.shade400
+                                      : Colors.red.shade400,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    _msg!.contains('sent')
+                                        ? Icons.check_circle_outline
+                                        : Icons.error_outline,
                                     color: _msg!.contains('sent')
-                                        ? Colors.green
-                                        : Colors.red),
-                                textAlign: TextAlign.center),
+                                        ? Colors.green.shade400
+                                        : Colors.red.shade400,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _msg!,
+                                      style: TextStyle(
+                                        color: _msg!.contains('sent')
+                                            ? Colors.green.shade400
+                                            : Colors.red.shade400,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 8),
                           ],
 

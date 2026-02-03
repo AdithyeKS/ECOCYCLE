@@ -9,8 +9,10 @@ import 'package:http/http.dart' as http;
 import '../services/cloth_service.dart';
 import '../core/supabase_config.dart';
 
-// Assuming GEMINI_API_KEY is available globally or needs to be defined here:
-const String _GEMINI_API_KEY = "AIzaSyB6OjloqNfljFJvo4YUnr6XqUZ2rkCGXsU"; 
+// Import from config instead of hardcoding
+import '../core/gemini_config.dart';
+
+const String _GEMINI_API_KEY = GeminiConfig.apiKey;
 const String _GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 
 class AddClothScreen extends StatefulWidget {
@@ -24,7 +26,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
   final _formKey = GlobalKey<FormState>();
   final _locationController = TextEditingController();
   final _quantityController = TextEditingController();
-  
+
   String _selectedType = 'Apparel';
   String _selectedCondition = 'Good'; // User's subjective assessment
   int _estimatedDamagePercent = 0; // AI's objective damage assessment
@@ -34,11 +36,17 @@ class _AddClothScreenState extends State<AddClothScreen> {
   File? _imageFile;
   XFile? _pickedXFile;
   String _detectionMessage = 'Capture photo to analyze item.';
-  
+
   final _clothService = ClothService();
 
   // FIX: These are the master categories used in the dropdown
-  final List<String> _clothTypes = ['Apparel', 'Linen', 'Accessories', 'Footwear', 'Other'];
+  final List<String> _clothTypes = [
+    'Apparel',
+    'Linen',
+    'Accessories',
+    'Footwear',
+    'Other'
+  ];
   final List<String> _conditions = ['Good', 'Fair', 'Poor'];
 
   @override
@@ -49,7 +57,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
   }
 
   // ------------------------------------------
-  // Image Picking Logic 
+  // Image Picking Logic
   // ------------------------------------------
 
   Future<void> _pickImage() async {
@@ -63,12 +71,12 @@ class _AddClothScreenState extends State<AddClothScreen> {
     if (pickedFile != null) {
       setState(() {
         _pickedXFile = pickedFile;
-        _imageFile = File(pickedFile.path); 
+        _imageFile = File(pickedFile.path);
       });
       await _detectCloth(pickedFile);
     }
   }
-  
+
   // ------------------------------------------
   // Image Detection Logic (Gemini API for Cloth/Damage)
   // ------------------------------------------
@@ -78,7 +86,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
       _showSnackbar('Gemini API Key is not set.');
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _detectionMessage = 'Analyzing image for cloth type and damage...';
@@ -89,7 +97,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
       final Uint8List bytes = await xFile.readAsBytes();
       final base64Image = base64Encode(bytes);
       final mimeType = lookupMimeType(xFile.path) ?? 'image/jpeg';
-      
+
       final userQuery = """
       Analyze this image. 
       1. Determine if the main item is CLOTHING/FABRIC. If not, return "NON_CLOTHING".
@@ -99,24 +107,22 @@ class _AddClothScreenState extends State<AddClothScreen> {
       Respond ONLY with a JSON object. The JSON structure is: 
       {"type":"[Identified Type or NON_CLOTHING]", "damage_percent":[0-100], "reason":"[1 sentence summary of quality]"}
       """;
-      
-      final apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/$_GEMINI_MODEL:generateContent?key=$_GEMINI_API_KEY";
-      
+
+      final apiUrl =
+          "https://generativelanguage.googleapis.com/v1beta/models/$_GEMINI_MODEL:generateContent?key=$_GEMINI_API_KEY";
+
       final payload = {
         "contents": [
           {
             "parts": [
               {"text": userQuery},
               {
-                "inlineData": {
-                  "mimeType": mimeType,
-                  "data": base64Image
-                }
+                "inlineData": {"mimeType": mimeType, "data": base64Image}
               }
             ]
           }
         ],
-        "generationConfig": { 
+        "generationConfig": {
           "responseMimeType": "application/json",
           "responseSchema": {
             "type": "OBJECT",
@@ -138,30 +144,38 @@ class _AddClothScreenState extends State<AddClothScreen> {
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        final jsonString = result['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final jsonString =
+            result['candidates']?[0]?['content']?['parts']?[0]?['text'];
         final aiData = jsonDecode(jsonString);
 
         if (aiData != null) {
           final detectedType = aiData['type']?.toString() ?? 'Other';
           final damage = aiData['damage_percent'] as int? ?? 100;
           final reason = aiData['reason'] as String? ?? 'Analysis complete.';
-          
+
           if (detectedType.toUpperCase() == 'NON_CLOTHING' || damage > 80) {
-             _handleRejection(detectedType, damage, reason);
-             return;
+            _handleRejection(detectedType, damage, reason);
+            return;
           }
 
           // FIX LOGIC: Map the detailed AI result to a master category for the dropdown
           String masterCategory = 'Other';
-          
-          if (detectedType.toLowerCase().contains('shirt') || detectedType.toLowerCase().contains('trousers') || detectedType.toLowerCase().contains('dress')) {
-              masterCategory = 'Apparel';
-          } else if (detectedType.toLowerCase().contains('blanket') || detectedType.toLowerCase().contains('towel') || detectedType.toLowerCase().contains('sheet')) {
-              masterCategory = 'Linen';
-          } else if (detectedType.toLowerCase().contains('bag') || detectedType.toLowerCase().contains('hat') || detectedType.toLowerCase().contains('scarf')) {
-              masterCategory = 'Accessories';
-          } else if (detectedType.toLowerCase().contains('shoes') || detectedType.toLowerCase().contains('sneakers')) {
-              masterCategory = 'Footwear';
+
+          if (detectedType.toLowerCase().contains('shirt') ||
+              detectedType.toLowerCase().contains('trousers') ||
+              detectedType.toLowerCase().contains('dress')) {
+            masterCategory = 'Apparel';
+          } else if (detectedType.toLowerCase().contains('blanket') ||
+              detectedType.toLowerCase().contains('towel') ||
+              detectedType.toLowerCase().contains('sheet')) {
+            masterCategory = 'Linen';
+          } else if (detectedType.toLowerCase().contains('bag') ||
+              detectedType.toLowerCase().contains('hat') ||
+              detectedType.toLowerCase().contains('scarf')) {
+            masterCategory = 'Accessories';
+          } else if (detectedType.toLowerCase().contains('shoes') ||
+              detectedType.toLowerCase().contains('sneakers')) {
+            masterCategory = 'Footwear';
           }
           // Default remains 'Other' if no match is found.
 
@@ -169,18 +183,19 @@ class _AddClothScreenState extends State<AddClothScreen> {
           setState(() {
             _estimatedDamagePercent = damage;
             // Set the state variable to the master category
-            _selectedType = masterCategory; 
-            _detectionMessage = 'Analysis complete. Item set to: $masterCategory, Damage estimated at $damage%.';
+            _selectedType = masterCategory;
+            _detectionMessage =
+                'Analysis complete. Item set to: $masterCategory, Damage estimated at $damage%.';
           });
-          
-          _showSnackbar('Item detected: $detectedType. Damage: $damage%. Accepted for donation.');
 
+          _showSnackbar(
+              'Item detected: $detectedType. Damage: $damage%. Accepted for donation.');
         } else {
           throw Exception('AI analysis failed to return expected JSON.');
         }
-
       } else {
-        throw Exception('Gemini API failed: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'Gemini API failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       debugPrint('AI Detection Error: $e');
@@ -189,7 +204,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  
+
   void _handleRejection(String type, int damage, String reason) {
     if (mounted) {
       String message;
@@ -198,9 +213,9 @@ class _AddClothScreenState extends State<AddClothScreen> {
       } else {
         message = 'Item rejected: Damage ($damage%) exceeds 80% limit. $reason';
       }
-      
+
       setState(() {
-        _imageFile = null; 
+        _imageFile = null;
         _pickedXFile = null;
         _estimatedDamagePercent = 0;
         _detectionMessage = message;
@@ -211,7 +226,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
   }
 
   void _showSnackbar(String message) {
-     if (mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
@@ -219,13 +234,16 @@ class _AddClothScreenState extends State<AddClothScreen> {
   }
 
   // ------------------------------------------
-  // Submission Logic 
+  // Submission Logic
   // ------------------------------------------
 
   Future<void> _submitDonation() async {
     // Check for rejection status again before final submit
-    if (!_formKey.currentState!.validate() || _pickedXFile == null || _estimatedDamagePercent > 80) {
-      _showSnackbar('Please ensure all fields are filled, a photo is uploaded, and the damage is acceptable (<= 80%).');
+    if (!_formKey.currentState!.validate() ||
+        _pickedXFile == null ||
+        _estimatedDamagePercent > 80) {
+      _showSnackbar(
+          'Please ensure all fields are filled, a photo is uploaded, and the damage is acceptable (<= 80%).');
       return;
     }
 
@@ -241,7 +259,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
     try {
       final fileBytes = await _pickedXFile!.readAsBytes();
       final mimeType = lookupMimeType(_pickedXFile!.path) ?? 'image/jpeg';
-      
+
       // 1. Upload File
       try {
         imageUrl = await _clothService.uploadImage(fileBytes, mimeType);
@@ -275,9 +293,10 @@ class _AddClothScreenState extends State<AddClothScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     // Check if the item is rejected by AI based on damage limit
-    final bool isRejectedByDamage = _imageFile != null && _estimatedDamagePercent > 80;
+    final bool isRejectedByDamage =
+        _imageFile != null && _estimatedDamagePercent > 80;
 
     return Scaffold(
       appBar: AppBar(
@@ -299,7 +318,8 @@ class _AddClothScreenState extends State<AddClothScreen> {
             children: [
               Text(
                 'Step 1: Photo Analysis (80% Max Damage)',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -307,7 +327,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 style: TextStyle(color: theme.hintColor),
               ),
               const SizedBox(height: 16),
-              
+
               // --- Image Capture/Detection Area ---
               GestureDetector(
                 onTap: _isLoading ? null : _pickImage,
@@ -315,14 +335,19 @@ class _AddClothScreenState extends State<AddClothScreen> {
                   width: double.infinity,
                   height: 200,
                   decoration: BoxDecoration(
-                    color: _imageFile == null ? theme.colorScheme.surfaceContainerHighest : null,
+                    color: _imageFile == null
+                        ? theme.colorScheme.surfaceContainerHighest
+                        : null,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isRejectedByDamage ? Colors.red.shade700 : theme.dividerColor,
+                      color: isRejectedByDamage
+                          ? Colors.red.shade700
+                          : theme.dividerColor,
                       width: 2,
                     ),
                     image: _imageFile != null
-                        ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover)
+                        ? DecorationImage(
+                            image: FileImage(_imageFile!), fit: BoxFit.cover)
                         : null,
                   ),
                   child: Center(
@@ -330,35 +355,49 @@ class _AddClothScreenState extends State<AddClothScreen> {
                         ? Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.camera_alt, size: 56, color: theme.colorScheme.primary.withOpacity(0.6)),
+                              Icon(Icons.camera_alt,
+                                  size: 56,
+                                  color: theme.colorScheme.primary
+                                      .withOpacity(0.6)),
                               const SizedBox(height: 12),
-                              Text(_detectionMessage, style: const TextStyle(fontSize: 16)),
+                              Text(_detectionMessage,
+                                  style: const TextStyle(fontSize: 16)),
                             ],
                           )
-                        : _isLoading 
-                          ? Container(
-                              color: Colors.black.withOpacity(0.5),
-                              child: const Center(child: CircularProgressIndicator(color: Colors.white)),
-                            )
-                          : null,
+                        : _isLoading
+                            ? Container(
+                                color: Colors.black.withOpacity(0.5),
+                                child: const Center(
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white)),
+                              )
+                            : null,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               // --- Detection Results ---
               if (_imageFile != null && !_isLoading) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isRejectedByDamage ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                    color: isRejectedByDamage
+                        ? Colors.red.withOpacity(0.1)
+                        : Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isRejectedByDamage ? Colors.red.shade300 : Colors.green.shade300),
+                    border: Border.all(
+                        color: isRejectedByDamage
+                            ? Colors.red.shade300
+                            : Colors.green.shade300),
                   ),
                   child: Row(
                     children: [
-                      Icon(isRejectedByDamage ? Icons.block : Icons.check_circle, 
-                           color: isRejectedByDamage ? Colors.red.shade700 : Colors.green.shade700),
+                      Icon(
+                          isRejectedByDamage ? Icons.block : Icons.check_circle,
+                          color: isRejectedByDamage
+                              ? Colors.red.shade700
+                              : Colors.green.shade700),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -366,13 +405,18 @@ class _AddClothScreenState extends State<AddClothScreen> {
                           children: [
                             Text(
                               'AI Analysis:',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.textTheme.bodyLarge?.color),
                             ),
                             Text(
-                              isRejectedByDamage 
-                                ? 'Status: REJECTED (Damage: $_estimatedDamagePercent%)'
-                                : 'Type Detected: $_selectedType | Damage: $_estimatedDamagePercent%',
-                              style: TextStyle(color: isRejectedByDamage ? Colors.red.shade700 : Colors.green.shade700),
+                              isRejectedByDamage
+                                  ? 'Status: REJECTED (Damage: $_estimatedDamagePercent%)'
+                                  : 'Type Detected: $_selectedType | Damage: $_estimatedDamagePercent%',
+                              style: TextStyle(
+                                  color: isRejectedByDamage
+                                      ? Colors.red.shade700
+                                      : Colors.green.shade700),
                             ),
                           ],
                         ),
@@ -383,10 +427,10 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 const SizedBox(height: 24),
               ],
 
-
               Text(
                 'Step 2: Donation Details',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
 
@@ -396,7 +440,8 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 decoration: InputDecoration(
                   labelText: 'Cloth Type',
                   prefixIcon: const Icon(Icons.style_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 items: _clothTypes.map((String type) {
                   return DropdownMenuItem<String>(
@@ -409,7 +454,8 @@ class _AddClothScreenState extends State<AddClothScreen> {
                     _selectedType = newValue!;
                   });
                 },
-                validator: (value) => value == null ? tr('required_field') : null,
+                validator: (value) =>
+                    value == null ? tr('required_field') : null,
               ),
               const SizedBox(height: 16),
 
@@ -419,11 +465,13 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 decoration: InputDecoration(
                   labelText: 'Quantity (Number of items)',
                   prefixIcon: const Icon(Icons.numbers),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
-                  if (value == null || value.isEmpty) return tr('required_field');
+                  if (value == null || value.isEmpty)
+                    return tr('required_field');
                   if (int.tryParse(value) == null || int.parse(value) <= 0) {
                     return 'Enter a valid positive number';
                   }
@@ -438,7 +486,8 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 decoration: InputDecoration(
                   labelText: 'Condition (Your rating)',
                   prefixIcon: const Icon(Icons.check_box_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 items: _conditions.map((String condition) {
                   return DropdownMenuItem<String>(
@@ -451,7 +500,8 @@ class _AddClothScreenState extends State<AddClothScreen> {
                     _selectedCondition = newValue!;
                   });
                 },
-                validator: (value) => value == null ? tr('required_field') : null,
+                validator: (value) =>
+                    value == null ? tr('required_field') : null,
               ),
               const SizedBox(height: 16),
 
@@ -462,9 +512,11 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 decoration: InputDecoration(
                   labelText: 'Pickup Location / Address',
                   prefixIcon: const Icon(Icons.location_on_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                validator: (value) => value?.isEmpty == true ? tr('required_field') : null,
+                validator: (value) =>
+                    value?.isEmpty == true ? tr('required_field') : null,
               ),
               const SizedBox(height: 32),
 
@@ -472,7 +524,11 @@ class _AddClothScreenState extends State<AddClothScreen> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: (_isSubmitting || _imageFile == null || isRejectedByDamage) ? null : _submitDonation,
+                  onPressed: (_isSubmitting ||
+                          _imageFile == null ||
+                          isRejectedByDamage)
+                      ? null
+                      : _submitDonation,
                   icon: _isSubmitting
                       ? const SizedBox(
                           width: 20,
@@ -484,13 +540,19 @@ class _AddClothScreenState extends State<AddClothScreen> {
                   label: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
-                      _isSubmitting ? 'Submitting...' : isRejectedByDamage ? 'Rejected (Too Damaged)' : 'Submit Donation', 
-                      style: const TextStyle(fontSize: 16)
-                    ),
+                        _isSubmitting
+                            ? 'Submitting...'
+                            : isRejectedByDamage
+                                ? 'Rejected (Too Damaged)'
+                                : 'Submit Donation',
+                        style: const TextStyle(fontSize: 16)),
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: isRejectedByDamage ? Colors.red.shade400 : Colors.indigo,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: isRejectedByDamage
+                        ? Colors.red.shade400
+                        : Colors.indigo,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),

@@ -13,7 +13,7 @@ class PlasticService {
 
   /// Uploads plastic image to Supabase storage and returns public URL
   Future<String> uploadImage(Uint8List bytes, String mimeType) async {
-    final fileName = 'plastic_${ DateTime.now().millisecondsSinceEpoch}.jpg';
+    final fileName = 'plastic_${DateTime.now().millisecondsSinceEpoch}.jpg';
     final path = 'plastic_uploads/$fileName';
 
     try {
@@ -57,17 +57,33 @@ class PlasticService {
         userId, itemName, 'Pending - Plastic item submitted for recycling');
   }
 
-  /// Fetches all plastic items for the current user
+  /// Fetches all plastic items (RLS will filter based on user role)
   Future<List<PlasticItem>> fetchAll() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return [];
+    try {
+      final data = await supabase
+          .from('plastic_items')
+          .select()
+          .order('created_at', ascending: false);
+      print('✓ Plastic items fetched: ${(data as List).length} items');
+      return (data as List).map((e) => PlasticItem.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching plastic items: $e');
+      rethrow;
+    }
+  }
 
-    final data = await supabase
-        .from('plastic_items')
-        .select()
-        .eq('user_id', user.id)
-        .order('created_at', ascending: false);
-
-    return (data as List).map((e) => PlasticItem.fromJson(e)).toList();
+  /// Fetches plastic items by delivery status.
+  Future<List<PlasticItem>> fetchItemsByDeliveryStatus(String status) async {
+    try {
+      final data = await supabase
+          .from('plastic_items')
+          .select()
+          .eq('delivery_status', status)
+          .order('created_at', ascending: false);
+      return (data as List).map((e) => PlasticItem.fromJson(e)).toList();
+    } catch (e) {
+      print('✗ Error fetching plastic items by status: $e');
+      rethrow;
+    }
   }
 }

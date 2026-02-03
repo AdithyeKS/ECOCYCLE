@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/pickup_agent.dart';
 import '../services/ewaste_service.dart';
 
@@ -76,7 +77,8 @@ class _AgentManagementScreenState extends State<AgentManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Agent'),
-        content: Text('Are you sure you want to delete the agent "$name"? This cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete the agent "$name"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -106,6 +108,65 @@ class _AgentManagementScreenState extends State<AgentManagementScreen> {
             SnackBar(content: Text('Error deleting agent: $e')),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _updateAgentLocation(String agentId) async {
+    try {
+      // Check location permissions
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Location permissions are required')),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Location permissions are permanently denied')),
+          );
+        }
+        return;
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      // Update agent location in database
+      await _ewasteService.updatePickupAgent(agentId, {
+        'current_latitude': position.latitude,
+        'current_longitude': position.longitude,
+      });
+
+      // Refresh the list
+      await _fetchAgents();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Location updated: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating location: $e')),
+        );
       }
     }
   }
@@ -149,8 +210,12 @@ class _AgentManagementScreenState extends State<AgentManagementScreen> {
                       elevation: 3,
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: agent.isActive ? Colors.green.shade100 : Colors.red.shade100,
-                          child: Icon(Icons.delivery_dining, color: agent.isActive ? Colors.green : Colors.red),
+                          backgroundColor: agent.isActive
+                              ? Colors.green.shade100
+                              : Colors.red.shade100,
+                          child: Icon(Icons.delivery_dining,
+                              color:
+                                  agent.isActive ? Colors.green : Colors.red),
                         ),
                         title: Text(
                           agent.name,
@@ -163,12 +228,26 @@ class _AgentManagementScreenState extends State<AgentManagementScreen> {
                             Text('Phone: ${agent.phone}'),
                             if (agent.vehicleNumber != null)
                               Text('Vehicle: ${agent.vehicleNumber!}'),
+                            Text(
+                                'Location: ${agent.currentLatitude != null && agent.currentLongitude != null ? '${agent.currentLatitude!.toStringAsFixed(4)}, ${agent.currentLongitude!.toStringAsFixed(4)}' : 'Not set'}'),
                           ],
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteAgent(agent.id, agent.name),
-                          tooltip: 'Delete Agent',
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.location_on,
+                                  color: Colors.blue),
+                              onPressed: () => _updateAgentLocation(agent.id),
+                              tooltip: 'Update Live Location',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () =>
+                                  _deleteAgent(agent.id, agent.name),
+                              tooltip: 'Delete Agent',
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -209,8 +288,12 @@ class _AddAgentDialogState extends State<AddAgentDialog> {
         'id': _idController.text.trim(),
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        'vehicle': _vehicleController.text.trim().isEmpty ? null : _vehicleController.text.trim(),
+        'email': _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+        'vehicle': _vehicleController.text.trim().isEmpty
+            ? null
+            : _vehicleController.text.trim(),
       });
     }
   }
@@ -227,32 +310,39 @@ class _AddAgentDialogState extends State<AddAgentDialog> {
             children: [
               TextFormField(
                 controller: _idController,
-                decoration: const InputDecoration(labelText: 'Agent Unique ID (Auth UID) *'),
-                validator: (value) => value?.isEmpty == true ? 'Required: Enter the Supabase Auth UID' : null,
+                decoration: const InputDecoration(
+                    labelText: 'Agent Unique ID (Auth UID) *'),
+                validator: (value) => value?.isEmpty == true
+                    ? 'Required: Enter the Supabase Auth UID'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Full Name *'),
-                validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                validator: (value) =>
+                    value?.isEmpty == true ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(labelText: 'Phone Number *'),
                 keyboardType: TextInputType.phone,
-                validator: (value) => value?.isEmpty == true ? 'Required' : null,
+                validator: (value) =>
+                    value?.isEmpty == true ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email (Optional)'),
+                decoration:
+                    const InputDecoration(labelText: 'Email (Optional)'),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _vehicleController,
-                decoration: const InputDecoration(labelText: 'Vehicle Number (Optional)'),
+                decoration: const InputDecoration(
+                    labelText: 'Vehicle Number (Optional)'),
               ),
             ],
           ),

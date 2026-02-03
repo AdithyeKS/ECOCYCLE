@@ -17,6 +17,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
   List<EwasteItem> _assignedItems = [];
   bool _isLoading = true;
   String? _agentId;
+  Map<String, String> _userNames = {};
 
   @override
   void initState() {
@@ -48,6 +49,24 @@ class _AgentDashboardState extends State<AgentDashboard> {
     try {
       // Fetch items assigned to the current agent ID
       final items = await _ewasteService.fetchItemsForAgent(_agentId!);
+
+      // Fetch user names for all items
+      final userIds = items.map((item) => item.userId).toSet();
+      final userNames = <String, String>{};
+
+      for (final userId in userIds) {
+        try {
+          final profile = await AppSupabase.client
+              .from('profiles')
+              .select('full_name')
+              .eq('id', userId)
+              .single();
+          userNames[userId] = profile['full_name'] ?? 'Unknown User';
+        } catch (e) {
+          userNames[userId] = 'Unknown User';
+        }
+      }
+
       setState(() {
         // Sort items to show 'assigned' first, then 'collected'
         items.sort((a, b) {
@@ -56,6 +75,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
           return statusA.compareTo(statusB);
         });
         _assignedItems = items;
+        _userNames = userNames;
         _isLoading = false;
       });
     } catch (e) {
@@ -300,6 +320,34 @@ class _AgentDashboardState extends State<AgentDashboard> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
+                                          // Customer Information
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.person,
+                                                    size: 16,
+                                                    color:
+                                                        Colors.blue.shade700),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Customer: ${_userNames[item.userId] ?? 'Unknown'}',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.blue.shade700,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
                                           Text(
                                             item.itemName,
                                             style: const TextStyle(

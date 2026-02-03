@@ -5,12 +5,14 @@ import 'package:EcoCycle/screens/tracking_screen.dart';
 import 'package:EcoCycle/screens/rewards_screen.dart';
 import 'package:EcoCycle/screens/volunteer_dashboard.dart';
 import 'package:EcoCycle/screens/admin_dashboard.dart';
+import 'package:EcoCycle/screens/volunteer_choice_screen.dart';
 import 'package:EcoCycle/core/supabase_config.dart';
 import 'package:EcoCycle/services/profile_service.dart';
 
 class HomeShell extends StatefulWidget {
   final VoidCallback toggleTheme;
-  const HomeShell({super.key, required this.toggleTheme});
+  final String? forcedRole;
+  const HomeShell({super.key, required this.toggleTheme, this.forcedRole});
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -36,6 +38,18 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _loadUserRole() async {
+    // If forced role is provided, use it directly
+    if (widget.forcedRole != null) {
+      if (mounted) {
+        setState(() {
+          _userRole = widget.forcedRole;
+          _isLoadingRole = false;
+        });
+        debugPrint('FORCED USER ROLE: $_userRole');
+      }
+      return;
+    }
+
     final user = AppSupabase.client.auth.currentUser;
     if (user == null) {
       if (mounted) setState(() => _isLoadingRole = false);
@@ -55,7 +69,7 @@ class _HomeShellState extends State<HomeShell> {
         });
 
         // DEBUG PRINT: Log the role for troubleshooting
-        debugPrint('--- USER ROLE FETCHED: $_userRole ---');
+        debugPrint('LOGIN: User role fetched: $_userRole');
       }
     } catch (e) {
       debugPrint('Error fetching user role for routing: $e');
@@ -70,7 +84,9 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingRole) {
+    // CRITICAL FIX: Always show loading until role is determined
+    // This prevents race conditions where volunteer choice screen doesn't show
+    if (_isLoadingRole || _userRole == null) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
@@ -78,17 +94,36 @@ class _HomeShellState extends State<HomeShell> {
       );
     }
 
+    // DEBUG: Log the final routing decision
+    debugPrint(
+        'ROUTING DECISION: role=$_userRole, forcedRole=${widget.forcedRole}');
+
     // 1. ROUTE ADMIN
     if (_userRole == 'admin') {
+      debugPrint('ROUTING: Admin dashboard');
       return const AdminDashboard();
     }
 
-    // 2. ROUTE AGENT/VOLUNTEER
-    if (_userRole == 'agent' || _userRole == 'volunteer') {
+    // 2. ROUTE AGENT
+    if (_userRole == 'agent') {
+      debugPrint('ROUTING: Agent dashboard');
       return const VolunteerDashboard();
     }
 
-    // 3. STANDARD USER NAVIGATION
+    // 3. ROUTE VOLUNTEER - Show choice screen if no forced role
+    if (_userRole == 'volunteer' && widget.forcedRole == null) {
+      debugPrint('ROUTING: Volunteer choice screen (no forced role)');
+      return VolunteerChoiceScreen(onThemeToggle: widget.toggleTheme);
+    }
+
+    // 4. ROUTE FORCED VOLUNTEER/USER
+    if (_userRole == 'volunteer' || widget.forcedRole == 'volunteer') {
+      debugPrint('ROUTING: Volunteer dashboard (forced or confirmed)');
+      return const VolunteerDashboard();
+    }
+
+    // 5. STANDARD USER NAVIGATION
+    debugPrint('ROUTING: Standard user navigation');
     return Scaffold(
       body: _userScreens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
