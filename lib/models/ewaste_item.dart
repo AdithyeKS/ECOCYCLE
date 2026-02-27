@@ -11,6 +11,7 @@ class EwasteItem {
   final DateTime createdAt;
   final int? rewardPoints;
   final Map<String, dynamic>? metadata;
+  final int quantity; // Added quantity field
 
   // New fields for NGO and pickup system
   final String? assignedAgentId;
@@ -20,6 +21,9 @@ class EwasteItem {
   final DateTime? pickupScheduledAt;
   final DateTime? collectedAt;
   final DateTime? deliveredAt;
+  final double? latitude;
+  final double? longitude;
+  final String? otpCode;
 
   EwasteItem({
     required this.id,
@@ -41,6 +45,10 @@ class EwasteItem {
     this.pickupScheduledAt,
     this.collectedAt,
     this.deliveredAt,
+    this.quantity = 1, // Default quantity
+    this.latitude,
+    this.longitude,
+    this.otpCode,
   });
 
   factory EwasteItem.fromJson(Map<String, dynamic> json) => EwasteItem(
@@ -72,7 +80,23 @@ class EwasteItem {
         deliveredAt: json['delivered_at'] != null
             ? DateTime.tryParse(json['delivered_at'])
             : null,
+        quantity: json['quantity'] != null ? json['quantity'] as int : 1,
+        latitude: _parseCoordinate(json['latitude']),
+        longitude: _parseCoordinate(json['longitude']),
+        otpCode: json['otp_code'] as String?,
       );
+
+  static double? _parseCoordinate(dynamic value) {
+    if (value == null) return null;
+    double? d = value is int ? value.toDouble() : (value as num).toDouble();
+    // Safety check: if coordinate is clearly out of range (like 10^5 or 10^6 scale)
+    // We attempt to normalize it. 90 is max lat, 180 is max lon.
+    if (d.abs() > 1000) {
+      if (d.abs() > 1000000) return d / 1000000.0;
+      if (d.abs() > 100000) return d / 100000.0;
+    }
+    return d;
+  }
 
   // copyWith method to create a modified copy of the object
   EwasteItem copyWith({
@@ -95,6 +119,10 @@ class EwasteItem {
     DateTime? pickupScheduledAt,
     DateTime? collectedAt,
     DateTime? deliveredAt,
+    int? quantity,
+    double? latitude,
+    double? longitude,
+    String? otpCode,
   }) {
     return EwasteItem(
       id: id ?? this.id,
@@ -116,6 +144,10 @@ class EwasteItem {
       pickupScheduledAt: pickupScheduledAt ?? this.pickupScheduledAt,
       collectedAt: collectedAt ?? this.collectedAt,
       deliveredAt: deliveredAt ?? this.deliveredAt,
+      quantity: quantity ?? this.quantity,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      otpCode: otpCode ?? this.otpCode,
     );
   }
 }

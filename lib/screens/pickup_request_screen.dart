@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/ewaste_item.dart';
 import '../services/ewaste_service.dart';
 
@@ -32,6 +33,7 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading items: $e')),
@@ -40,16 +42,19 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
   }
 
   Future<void> _requestPickup(EwasteItem item) async {
+    if (!mounted) return;
     final scheduledTime = await showDateTimePicker(context);
     if (scheduledTime != null) {
       try {
         await _ewasteService.schedulePickup(item.id, scheduledTime);
         await _ewasteService.updateStatus(item.id, 'Pickup Scheduled');
+        if (!mounted) return;
         _fetchPendingItems();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(tr('pickup_scheduled_success'))),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error scheduling pickup: $e')),
         );
@@ -66,6 +71,7 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
     );
 
     if (date != null) {
+      if (!context.mounted) return null;
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
@@ -132,11 +138,24 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
                                 item.imageUrl.isNotEmpty
                                     ? ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
-                                        child: Image.network(
-                                          item.imageUrl,
+                                        child: CachedNetworkImage(
+                                          imageUrl: item.imageUrl,
                                           width: 60,
                                           height: 60,
                                           fit: BoxFit.cover,
+                                          memCacheHeight: 200,
+                                          placeholder: (context, url) =>
+                                              Container(
+                                            width: 60,
+                                            height: 60,
+                                            color: Colors.grey[200],
+                                            child: const Icon(Icons.image,
+                                                color: Colors.grey),
+                                          ),
+                                          errorWidget: (context, url, error) =>
+                                              const Icon(
+                                                  Icons.image_not_supported,
+                                                  size: 60),
                                         ),
                                       )
                                     : const Icon(Icons.image_not_supported,
@@ -186,7 +205,7 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: Colors.orange.withOpacity(0.1),
+                                    color: Colors.orange.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(

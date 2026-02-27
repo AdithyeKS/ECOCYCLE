@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MissionScreen extends StatelessWidget {
   const MissionScreen({super.key});
@@ -24,28 +25,31 @@ class MissionScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withOpacity(0.15),
+                          color: Colors.green.withValues(alpha: 0.15),
                           blurRadius: 16,
                           offset: const Offset(0, 8),
                         ),
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.network(
-                      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+                    child: CachedNetworkImage(
+                      imageUrl:
+                          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                              ? child
-                              : Container(
-                                  height: 180,
-                                  width: double.infinity,
-                                  color: Colors.green.shade100,
-                                  child: const Center(
-                                      child: CircularProgressIndicator()),
-                                ),
+                      placeholder: (context, url) => Container(
+                        height: 180,
+                        width: double.infinity,
+                        color: Colors.green.shade100,
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 180,
+                        width: double.infinity,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.broken_image),
+                      ),
                     ),
                   )
                       .animate()

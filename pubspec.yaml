@@ -1,4 +1,4 @@
-name: EcoCycle
+name: ecocycle
 description: EcoCycle – Smart waste & cloth recycling (Supabase + OSM)
 publish_to: "none"
 version: 1.0.0+1
@@ -22,6 +22,7 @@ dependencies:
   fl_chart: ^0.66.2 # For analytics charts
   path_provider: ^2.0.15
   table_calendar: ^3.0.9 # For volunteer availability calendar
+  shared_preferences: ^2.5.3 # For local storage (theme, etc.)
 
   # === ADDED FOR AI/API INTEGRATION ===
   http: ^1.2.1 # Required for making POST request to Gemini API
@@ -29,6 +30,7 @@ dependencies:
   # ====================================
 
   path: ^1.8.3 # Corrected version requirement for path
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_lints: ^6.0.0
@@ -36,6 +38,7 @@ dev_dependencies:
     sdk: flutter
   # Add the launcher icons package here
   flutter_launcher_icons: "^0.13.1" # Use the latest version
+  flutter_native_splash: ^2.4.7
 
 flutter_launcher_icons:
   android: "launcher_icon"
@@ -49,3 +52,7 @@ flutter:
   assets:
     - assets/translations/
     - assets/images/ecocycle.png
+
+flutter_native_splash:
+  color: "#1B5E20"
+  image: "assets/images/ecocycle.png"

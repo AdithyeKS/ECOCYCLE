@@ -14,8 +14,8 @@ import '../services/plastic_service.dart';
 // Import from config instead of hardcoding
 import '../core/gemini_config.dart';
 
-const String _NEW_GEMINI_KEY = GeminiConfig.apiKey;
-const String _MODEL_NAME = "gemini-2.5-flash-preview-09-2025";
+const String _newGeminiKey = GeminiConfig.apiKey;
+const String _modelName = "gemini-2.5-flash-preview-09-2025";
 
 class AddPlasticScreen extends StatefulWidget {
   const AddPlasticScreen({super.key});
@@ -35,6 +35,7 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
   String _selectedType = 'Bottle';
   bool _isLoading = false;
   int _estimatedPoints = 0;
+  int _quantity = 1; // NEW: Quantity state variable
 
   @override
   void dispose() {
@@ -54,7 +55,7 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.08),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -70,7 +71,8 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
     _locationController.text = "Locating...";
     try {
       Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high));
 
       final url =
           'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&zoom=18';
@@ -85,7 +87,8 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
         });
       }
     } catch (e) {
-      _showErrorSnackBar("Location Error: $e");
+      _showErrorSnackBar(
+          "Unable to retrieve your current location. Please ensure location services are enabled and try again.");
     } finally {
       setState(() => _isLoading = false);
     }
@@ -101,7 +104,7 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
     });
 
     // Validate API Key before making request
-    if (_NEW_GEMINI_KEY.isEmpty || _NEW_GEMINI_KEY == 'YOUR_API_KEY_HERE') {
+    if (_newGeminiKey.isEmpty || _newGeminiKey == 'YOUR_API_KEY_HERE') {
       _showErrorSnackBar(
           "Error: Gemini API key not configured. Please update lib/core/gemini_config.dart");
       setState(() => _isLoading = false);
@@ -113,17 +116,49 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
       final base64Image = base64Encode(bytes);
 
       final prompt = """
-        Analyze this image strictly for plastic waste management.
-        1. If the item is NOT plastic (food, electronics, metal, paper), return category "NON_PLASTIC".
-        2. If it IS plastic, determine the category: 'Bottle', 'Bag', 'Cover', or 'Other'.
-        3. Provide a clear Item Name and a 2-sentence description of the material.
-        
-        Respond ONLY in JSON format: 
-        {"item_name": "name", "category": "Bottle/Bag/Cover/Other/NON_PLASTIC", "description": "desc"}
+      Analyze this image carefully for plastic waste submission.
+
+      FIRST: Check for human presence
+      - If ANY human (person, hand, face, or body part) is visible in the image, immediately reject with error.
+
+      SECOND: Check for NON-PLASTIC waste (Strict Rejection)
+      - E-WASTE: Headphones, cables, chargers, remote controls, keyboards, mouse, circuit boards, batteries, electronic toys. Even if they have plastic casing, they are E-WASTE.
+      - CLOTH: Clothes, fabric bags, towels, textile items.
+
+      THIRD: Plastic validation and analysis
+      - If valid plastic, determine the category from this list:
+        1. 'Bottle' (Water bottles, soda bottles, PET bottles)
+        2. 'Polythene Bags & Covers' (Grocery bags, plastic covers, ziplock bags)
+        3. 'Plastic Furniture' (Chairs, stools, tables)
+        4. 'Sheets & Films' (Tarps, clear sheets, lamination films)
+        5. 'Multi-layer Packaging (Wrappers)' (Chip packets, biscuit wrappers, shiny food packaging)
+        6. 'Rigid Plastic (HDPE/PP)' (Toys, buckets, mugs, shampoo bottles, thick containers)
+        7. 'Other' (Pens, stationary, or anything that fits none of the above)
+
+      - If the item is NOT plastic (food, metal, paper, wood, etc.), return category "NON_PLASTIC"
+      - Provide a clear Item Name and a 2-sentence description.
+
+      RESPONSE RULES:
+      - If human detected: Set "error_type": "human_detected", "error_message": "Not acceptable image, human detected"
+      - If E-WASTE detected: Set "error_type": "ewaste_detected", "error_message": "This looks like an electronic item (E-Waste)."
+      - If CLOTH detected: Set "error_type": "cloth_detected", "error_message": "This looks like a cloth/fabric item."
+      - If valid plastic: Provide item details without error fields.
+      - If not plastic: Set category to "NON_PLASTIC" without error fields.
+
+      Respond ONLY with a JSON object in one of these formats:
+
+      For VALID plastic:
+      {"item_name": "name", "category": "Exact Category Name", "description": "desc"}
+
+      For NON_PLASTIC:
+      {"item_name": "item name", "category": "NON_PLASTIC", "description": "description"}
+
+      For HUMAN/E-WASTE/CLOTH/ERROR:
+      {"error_type": "type", "error_message": "message"}
       """;
 
       final url =
-          "https://generativelanguage.googleapis.com/v1beta/models/$_MODEL_NAME:generateContent?key=$_NEW_GEMINI_KEY";
+          "https://generativelanguage.googleapis.com/v1beta/models/$_modelName:generateContent?key=$_newGeminiKey";
 
       final response = await http.post(
         Uri.parse(url),
@@ -148,41 +183,100 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
         final aiResult =
             jsonDecode(data['candidates'][0]['content']['parts'][0]['text']);
 
+        // Check for error responses first
+        final errorType = aiResult['error_type']?.toString();
+        final errorMessage = aiResult['error_message']?.toString();
+
+        if (errorType != null && errorMessage != null) {
+          // Handle rejection cases
+          String dialogTitle = 'Image Rejected';
+          String userMessage = errorMessage;
+
+          if (errorType == 'human_detected') {
+            dialogTitle = 'Invalid Image';
+          } else if (errorType == 'ewaste_detected') {
+            dialogTitle = 'E-Waste Detected';
+            userMessage =
+                "This item appears to be E-Waste (Electronic Waste).\nPlease use the 'Add E-Waste' section for this item.";
+          } else if (errorType == 'cloth_detected') {
+            dialogTitle = 'Cloth Detected';
+            userMessage =
+                "This item appears to be Cloth/Fabric.\nPlease use the 'Add Clothes' section for this item.";
+          }
+
+          _showRejectionDialog(dialogTitle, userMessage);
+          setState(() {
+            _titleController.clear();
+            _descController.clear();
+            _imageFile = null; // Clear image to prevent accidental submission
+            _pickedXFile = null; // Clear the picked file as well
+            _selectedType = 'Bottle'; // Reset to a default valid category
+            _estimatedPoints = 0; // Ensure points are zeroed
+          });
+          return; // Exit early without throwing exception
+        }
+
+        // Handle valid responses
         // Restriction logic: Only allow plastic items
         if (aiResult['category'] == "NON_PLASTIC") {
+          _showRejectionDialog("Invalid Item Type",
+              "This is not a plastic waste item. Please add only plastic waste items here.");
           setState(() {
             _titleController.clear();
             _descController.clear();
             _imageFile = null;
+            _pickedXFile = null;
+            _selectedType = 'Bottle'; // Reset to default
+            _estimatedPoints = 0; // Reset points
           });
-          _showErrorSnackBar("Rejected: Only plastic items are allowed.");
         } else {
           setState(() {
             _titleController.text = aiResult['item_name'];
             _descController.text = aiResult['description'];
-            _selectedType = aiResult['category']; // Auto-selects the dropdown
-            _estimatedPoints = (_selectedType == 'Bottle') ? 40 : 20;
+
+            // Normalize category to ensure it matches dropdown exactly
+            String detectedCategory = aiResult['category'];
+            const validCategories = [
+              'Bottle',
+              'Polythene Bags & Covers',
+              'Plastic Furniture',
+              'Sheets & Films',
+              'Multi-layer Packaging (Wrappers)',
+              'Rigid Plastic (HDPE/PP)',
+              'Other'
+            ];
+
+            if (!validCategories.contains(detectedCategory)) {
+              // Fallback if AI hallucinates a new category name
+              detectedCategory = 'Other';
+            }
+
+            _selectedType = detectedCategory;
+            int base = (_selectedType == 'Bottle') ? 40 : 20;
+            _estimatedPoints = base + ((_quantity - 1) * 5);
           });
         }
       } else {
-        debugPrint("API Response: ${response.statusCode}");
-        debugPrint("Response Body: ${response.body}");
-        String errorMsg = "API Error: ${response.statusCode}";
+        // print(...);
+        // print(...);
+        String errorMsg =
+            "Unable to analyze the image at this time. Please try again later.";
         if (response.statusCode == 404) {
           errorMsg =
-              "API Error 404: Invalid API key or endpoint. Please update your Gemini API key.";
+              "Unable to process the image. Please check your API configuration and try again.";
         } else if (response.statusCode == 401) {
           errorMsg =
-              "API Error 401: Unauthorized. Check your API key validity.";
+              "Authentication failed. Please verify your API key and try again.";
         } else if (response.statusCode == 429) {
-          errorMsg = "API Error 429: Rate limit exceeded. Try again later.";
+          errorMsg =
+              "Service is temporarily busy. Please try again in a few moments.";
         }
         _showErrorSnackBar(errorMsg);
       }
     } catch (e) {
-      debugPrint("AI Detection Error: $e");
+      // print(...);
       _showErrorSnackBar(
-          "Analysis failed: Check your internet connection or API configuration.");
+          "Unable to analyze the image. Please check your internet connection and try again.");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -213,7 +307,8 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
 
       final user = AppSupabase.client.auth.currentUser;
       if (user == null) {
-        _showErrorSnackBar('Error: Session expired. Please log in again.');
+        _showErrorSnackBar(
+            'Your session has expired. Please log in again to continue.');
         return;
       }
       final bytes = await _pickedXFile!.readAsBytes();
@@ -233,15 +328,16 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
       // 2. Database Insertion
       try {
         await PlasticService().insertPlastic(
-          userId: user!.id,
+          userId: user.id,
           plasticType: _selectedType,
           itemName: _titleController.text,
           description: _descController.text,
           location: _locationController.text,
           imageUrl: imageUrl,
+          quantity: _quantity, // Pass quantity to service
         );
       } on PostgrestException catch (e) {
-        debugPrint('❌ POSTGREST (DB) ERROR: ${e.message}');
+        // print(...);
         throw Exception(
             'Database Error: ${e.message}. (Check RLS/Foreign Keys)');
       }
@@ -252,7 +348,8 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
             SnackBar(content: Text(tr('plastic_waste_reported'))));
       }
     } catch (e) {
-      _showErrorSnackBar("Submission Error: $e");
+      _showErrorSnackBar(
+          "Unable to submit your plastic waste report. Please try again.");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -266,17 +363,39 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
     }
   }
 
+  void _showRejectionDialog(String title, String message) {
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('add_plastic_waste')),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient:
-                LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
-          ),
-        ),
+        flexibleSpace: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                      colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
+                ),
+              ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -331,7 +450,7 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
                                 color: Theme.of(context)
                                     .colorScheme
                                     .primary
-                                    .withOpacity(0.6),
+                                    .withValues(alpha: 0.6),
                               ),
                               const SizedBox(height: 12),
                               const Text('Tap to open camera & analyze',
@@ -350,14 +469,14 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
                                   icon: const Icon(Icons.close),
                                   style: IconButton.styleFrom(
                                     backgroundColor:
-                                        Colors.black.withOpacity(0.5),
+                                        Colors.black.withValues(alpha: 0.5),
                                     foregroundColor: Colors.white,
                                   ),
                                 ),
                               ),
                               if (_isLoading)
                                 Container(
-                                  color: Colors.black.withOpacity(0.5),
+                                  color: Colors.black.withValues(alpha: 0.5),
                                   child: const Center(
                                     child: Column(
                                       mainAxisAlignment:
@@ -429,7 +548,15 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
                     // Plastic Category Dropdown
                     DropdownButtonFormField<String>(
                       initialValue: _selectedType,
-                      items: ['Bottle', 'Bag', 'Cover', 'Other']
+                      items: [
+                        'Bottle',
+                        'Polythene Bags & Covers',
+                        'Plastic Furniture',
+                        'Sheets & Films',
+                        'Multi-layer Packaging (Wrappers)',
+                        'Rigid Plastic (HDPE/PP)',
+                        'Other'
+                      ]
                           .map(
                               (s) => DropdownMenuItem(value: s, child: Text(s)))
                           .toList(),
@@ -442,6 +569,59 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
                           border: OutlineInputBorder()),
                     ),
 
+                    const SizedBox(height: 16),
+
+                    // NEW: Quantity Selector
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Quantity',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove),
+                                onPressed: _quantity > 1
+                                    ? () {
+                                        setState(() {
+                                          _quantity--;
+                                          int base = (_selectedType == 'Bottle')
+                                              ? 40
+                                              : 20;
+                                          _estimatedPoints =
+                                              base + ((_quantity - 1) * 5);
+                                        });
+                                      }
+                                    : null,
+                              ),
+                              Text(
+                                '$_quantity',
+                                style: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () {
+                                  setState(() {
+                                    _quantity++;
+                                    int base =
+                                        (_selectedType == 'Bottle') ? 40 : 20;
+                                    _estimatedPoints =
+                                        base + ((_quantity - 1) * 5);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(
                         height: 12), // Spacer before category display
 
@@ -450,7 +630,7 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -476,7 +656,7 @@ class _AddPlasticScreenState extends State<AddPlasticScreen> {
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.teal.withOpacity(0.1),
+                        color: Colors.teal.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.teal.shade200),
                       ),

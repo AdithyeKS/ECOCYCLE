@@ -28,6 +28,7 @@ class _NgoManagementScreenState extends State<NgoManagementScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading NGOs: $e')),
@@ -36,6 +37,7 @@ class _NgoManagementScreenState extends State<NgoManagementScreen> {
   }
 
   Future<void> _addNgo() async {
+    if (!mounted) return;
     final result = await showDialog<Ngo>(
       context: context,
       builder: (context) => const AddNgoDialog(),
@@ -44,11 +46,13 @@ class _NgoManagementScreenState extends State<NgoManagementScreen> {
     if (result != null) {
       try {
         await _ewasteService.addNgo(result);
+        if (!mounted) return;
         _fetchNgos();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('NGO added successfully')),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error adding NGO: $e')),
         );
@@ -57,6 +61,7 @@ class _NgoManagementScreenState extends State<NgoManagementScreen> {
   }
 
   Future<void> _deleteNgo(String id) async {
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -79,11 +84,13 @@ class _NgoManagementScreenState extends State<NgoManagementScreen> {
     if (confirmed == true) {
       try {
         await _ewasteService.deleteNgo(id);
+        if (!mounted) return;
         _fetchNgos();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('NGO deleted successfully')),
         );
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error deleting NGO: $e')),
         );
@@ -133,12 +140,50 @@ class _NgoManagementScreenState extends State<NgoManagementScreen> {
                                 const Icon(Icons.business, color: Colors.green),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    ngo.name,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          ngo.name,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (ngo.isGovernmentApproved) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue
+                                                .withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            border:
+                                                Border.all(color: Colors.blue),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: const [
+                                              Icon(Icons.verified,
+                                                  size: 14, color: Colors.blue),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'GOV',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.blue,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -221,8 +266,11 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
   final _descriptionController = TextEditingController();
   final _districtController = TextEditingController();
   final _addressController = TextEditingController();
+  final _wasteTypesController = TextEditingController();
+  final _contactInfoController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
+  bool _isGovernmentApproved = true;
 
   @override
   void dispose() {
@@ -230,6 +278,8 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
     _descriptionController.dispose();
     _districtController.dispose();
     _addressController.dispose();
+    _wasteTypesController.dispose();
+    _contactInfoController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -245,8 +295,18 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
             : _descriptionController.text,
         district: _districtController.text,
         address: _addressController.text,
+        wasteTypes: _wasteTypesController.text.isEmpty
+            ? null
+            : _wasteTypesController.text
+                .split(',')
+                .map((e) => e.trim())
+                .toList(),
+        contactInfo: _contactInfoController.text.isEmpty
+            ? null
+            : _contactInfoController.text,
         phone: _phoneController.text.isEmpty ? null : _phoneController.text,
         email: _emailController.text.isEmpty ? null : _emailController.text,
+        isGovernmentApproved: _isGovernmentApproved,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -272,6 +332,13 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                controller: _districtController,
+                decoration: const InputDecoration(labelText: 'District *'),
+                validator: (value) =>
+                    value?.isEmpty == true ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(labelText: 'Description'),
                 maxLines: 2,
@@ -285,6 +352,17 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                controller: _wasteTypesController,
+                decoration: const InputDecoration(
+                    labelText: 'Waste Types Accepted (comma separated)'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _contactInfoController,
+                decoration: const InputDecoration(labelText: 'Contact Info'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(labelText: 'Phone'),
                 keyboardType: TextInputType.phone,
@@ -294,6 +372,13 @@ class _AddNgoDialogState extends State<AddNgoDialog> {
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: 'Email'),
                 keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                title: const Text('Government Approved'),
+                value: _isGovernmentApproved,
+                onChanged: (value) =>
+                    setState(() => _isGovernmentApproved = value),
               ),
             ],
           ),

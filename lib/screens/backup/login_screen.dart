@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
-import 'package:EcoCycle/screens/forgot_password_screen.dart';
-import 'package:EcoCycle/screens/home_shell.dart';
-import 'package:EcoCycle/screens/signup_screen.dart';
-import 'package:EcoCycle/services/profile_service.dart'; // NEW IMPORT
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/screens/forgot_password_screen.dart';
+import 'package:ecocycle/screens/home_shell.dart';
+import 'package:ecocycle/screens/signup_screen.dart';
+import 'package:ecocycle/services/profile_service.dart'; // NEW IMPORT
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -109,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
       labelText: labelText,
       prefixIcon: Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context).cardColor.withOpacity(0.8), 
+      fillColor: Theme.of(context).cardColor.withValues(alpha: 0.8), 
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        borderSide: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(top: 8, bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.red.shade900.withOpacity(0.15),
+        color: Colors.red.shade900.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.red.shade400, width: 1),
       ),
@@ -180,15 +180,15 @@ class _LoginScreenState extends State<LoginScreen> {
           // 2. Thematic Elements Layer (Blobs)
           Positioned(
             top: -50, left: -50,
-            child: Container(width: 250, height: 250, decoration: BoxDecoration(color: Colors.blue.withOpacity(0.15), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)]),),
+            child: Container(width: 250, height: 250, decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.15), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 0.2), blurRadius: 40)]),),
           ),
           Positioned(
             bottom: -30, right: -30,
-            child: Container(width: 180, height: 180, decoration: BoxDecoration(color: Colors.yellow.shade700.withOpacity(0.1), borderRadius: BorderRadius.circular(50), boxShadow: [BoxShadow(color: Colors.yellow.shade700.withOpacity(0.2), blurRadius: 30)]),),
+            child: Container(width: 180, height: 180, decoration: BoxDecoration(color: Colors.yellow.shade700.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(50), boxShadow: [BoxShadow(color: Colors.yellow.shade700.withValues(alpha: 0.2), blurRadius: 30)]),),
           ),
           Positioned(
             top: 200, right: 10,
-            child: Container(width: 100, height: 100, decoration: BoxDecoration(color: Colors.lightGreenAccent.withOpacity(0.1), shape: BoxShape.circle),),
+            child: Container(width: 100, height: 100, decoration: BoxDecoration(color: Colors.lightGreenAccent.withValues(alpha: 0.1), shape: BoxShape.circle),),
           ),
 
 
@@ -202,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   elevation: 20,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
-                  color: theme.cardColor.withOpacity(0.95),
+                  color: theme.cardColor.withValues(alpha: 0.95),
                   child: Padding(
                     padding: const EdgeInsets.all(30),
                     child: Form(

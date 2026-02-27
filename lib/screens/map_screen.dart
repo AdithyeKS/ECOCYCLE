@@ -73,7 +73,7 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _locate();
   }
-  
+
   // FIX: Refactored _locate() function for robust permission and service checks
   Future<void> _locate() async {
     // 1. Check if location services (GPS) are enabled on the device.
@@ -83,7 +83,8 @@ class _MapScreenState extends State<MapScreen> {
         // The exact error message you reported! Use an alert to guide the user.
         _showAlertDialog(
           title: 'Location Services Disabled',
-          content: 'The device location services (GPS) are currently disabled. Please enable them in your phone settings to show your current position.',
+          content:
+              'The device location services (GPS) are currently disabled. Please enable them in your phone settings to show your current position.',
         );
       }
       return;
@@ -95,13 +96,14 @@ class _MapScreenState extends State<MapScreen> {
       // Request permission if initially denied.
       permission = await Geolocator.requestPermission();
     }
-    
+
     // 3. Handle denial states.
     if (permission == LocationPermission.deniedForever) {
       if (mounted) {
-         _showAlertDialog(
+        _showAlertDialog(
           title: 'Permission Permanently Denied',
-          content: 'Location permission has been permanently denied. You must grant access in the app settings.',
+          content:
+              'Location permission has been permanently denied. You must grant access in the app settings.',
         );
       }
       return;
@@ -117,19 +119,20 @@ class _MapScreenState extends State<MapScreen> {
     // 4. Get position and update map.
     try {
       final p = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high));
       final me = LatLng(p.latitude, p.longitude);
-      
+
       if (mounted) {
         setState(() {
           _me = me;
           _center = me;
         });
       }
-      
+
       _controller.move(_center, 15);
       _computeNearest();
-      
+
       // Automatically show nearest list for convenience after locating
       if (mounted) {
         Future.delayed(
@@ -137,8 +140,9 @@ class _MapScreenState extends State<MapScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error getting location: ${e.toString().contains('Timeout') ? 'Location request timed out or failed to get position.' : e.toString()}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Error getting location: ${e.toString().contains('Timeout') ? 'Location request timed out or failed to get position.' : e.toString()}')));
       }
     }
   }
@@ -156,7 +160,8 @@ class _MapScreenState extends State<MapScreen> {
             child: const Text('OK'),
           ),
           // Optionally guide user to settings if permission/service is denied/disabled
-          if (title.contains('Disabled') || title.contains('Permanently Denied'))
+          if (title.contains('Disabled') ||
+              title.contains('Permanently Denied'))
             FilledButton(
               onPressed: () {
                 Navigator.pop(ctx);
@@ -306,7 +311,8 @@ class _MapScreenState extends State<MapScreen> {
         width: 56,
         height: 56,
         // FIX: Use theme primary color, not hardcoded red, for location
-        child: Icon(Icons.my_location, size: 40, color: Theme.of(context).colorScheme.secondary),
+        child: Icon(Icons.my_location,
+            size: 40, color: Theme.of(context).colorScheme.secondary),
       ));
     }
 

@@ -6,14 +6,12 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import '../services/cloth_service.dart';
 import '../core/supabase_config.dart';
-
-// Import from config instead of hardcoding
 import '../core/gemini_config.dart';
 
-const String _GEMINI_API_KEY = GeminiConfig.apiKey;
-const String _GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+// ...existing code...
 
 class AddClothScreen extends StatefulWidget {
   const AddClothScreen({super.key});
@@ -23,13 +21,20 @@ class AddClothScreen extends StatefulWidget {
 }
 
 class _AddClothScreenState extends State<AddClothScreen> {
+  String? _aiError;
+  final String _geminiApiKey = GeminiConfig.apiKey;
+  final String _geminiModel = "gemini-2.5-flash-preview-09-2025";
   final _formKey = GlobalKey<FormState>();
   final _locationController = TextEditingController();
   final _quantityController = TextEditingController();
 
   String _selectedType = 'Apparel';
-  String _selectedCondition = 'Good'; // User's subjective assessment
+  String _selectedCondition = 'Good'; // Set by AI after analysis
   int _estimatedDamagePercent = 0; // AI's objective damage assessment
+  int _ecoPoints = 0; // Calculated eco points
+  double? _latitude;
+  double? _longitude;
+
   bool _isSubmitting = false;
   bool _isLoading = false;
 
@@ -48,6 +53,77 @@ class _AddClothScreenState extends State<AddClothScreen> {
     'Other'
   ];
   final List<String> _conditions = ['Good', 'Fair', 'Poor'];
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLoading = true);
+    _locationController.text = "Locating...";
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _showSnackbar(
+              'Location access is required to determine your pickup address. Please grant location permissions.');
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        _showSnackbar(
+            'Location permissions have been permanently denied. To use this feature, enable location access in your device settings.');
+        setState(() => _isLoading = false);
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+          locationSettings:
+              const LocationSettings(accuracy: LocationAccuracy.high));
+      final url =
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&zoom=18';
+      final response = await http
+          .get(Uri.parse(url), headers: {'User-Agent': 'EcoCycle/1.0'});
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _locationController.text = data['display_name'] ??
+              "${position.latitude}, ${position.longitude}";
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+        });
+      } else {
+        _showSnackbar(
+            'Unable to retrieve your address. Please try again or enter it manually.');
+      }
+    } catch (e) {
+      _showSnackbar(
+          "An error occurred while accessing your location. Please check your connection and try again.");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Calculate eco points based on damage and type
+  void _updateEcoPoints() {
+    // Example logic: Good = 125, Fair = 100, Poor = 75, reduce by damage
+    int basePoints;
+    switch (_selectedCondition) {
+      case 'Good':
+        basePoints = 125;
+        break;
+      case 'Fair':
+        basePoints = 100;
+        break;
+      case 'Poor':
+        basePoints = 75;
+        break;
+      default:
+        basePoints = 75;
+    }
+    // Reduce points by damage percent (max 80%)
+    int reduction = ((_estimatedDamagePercent / 100) * basePoints).round();
+    int points = basePoints - reduction;
+    if (points < 0) points = 0;
+    setState(() => _ecoPoints = points);
+  }
 
   @override
   void dispose() {
@@ -82,15 +158,18 @@ class _AddClothScreenState extends State<AddClothScreen> {
   // ------------------------------------------
 
   Future<void> _detectCloth(XFile xFile) async {
-    if (_GEMINI_API_KEY.isEmpty) {
-      _showSnackbar('Gemini API Key is not set.');
+    if (_geminiApiKey.isEmpty || _geminiApiKey.contains('DISABLED')) {
+      _showSnackbar(
+          'AI analysis is currently unavailable. Please contact support to enable image analysis features.');
       return;
     }
 
     setState(() {
       _isLoading = true;
-      _detectionMessage = 'Analyzing image for cloth type and damage...';
+      _detectionMessage =
+          'Analyzing image for cloth type, damage, and quantity...';
       _estimatedDamagePercent = 0;
+      _aiError = null;
     });
 
     try {
@@ -99,17 +178,36 @@ class _AddClothScreenState extends State<AddClothScreen> {
       final mimeType = lookupMimeType(xFile.path) ?? 'image/jpeg';
 
       final userQuery = """
-      Analyze this image. 
-      1. Determine if the main item is CLOTHING/FABRIC. If not, return "NON_CLOTHING".
-      2. If it is clothing, provide a concise 'type' (e.g., Shirt, Blanket, Shoes).
-      3. Estimate the percentage of visible damage (stains, tears, excessive wear) from 0 (perfect) to 100 (total waste).
+      Analyze this image carefully for cloth donation submission.
 
-      Respond ONLY with a JSON object. The JSON structure is: 
-      {"type":"[Identified Type or NON_CLOTHING]", "damage_percent":[0-100], "reason":"[1 sentence summary of quality]"}
+      FIRST: Check for human presence
+      - If ANY human (person, hand, face, or body part) is visible in the image, immediately reject with error.
+
+      SECOND: Cloth validation and analysis
+      - Determine if the main item is CLOTHING/FABRIC. If not, return "NON_CLOTHING".
+      - If it is clothing, provide a concise 'type' (e.g., Shirt, Blanket, Shoes).
+      - Estimate the percentage of visible damage (stains, tears, excessive wear) from 0 (perfect) to 100 (total waste).
+      - Estimate the number of items visible (quantity, minimum 1 if unsure).
+
+      RESPONSE RULES:
+      - If human detected: Set "error_type": "human_detected", "error_message": "Not acceptable image, human detected"
+      - If valid cloth: Provide cloth details without error fields
+      - If not cloth: Set type to "NON_CLOTHING" without error fields
+
+      Respond ONLY with a JSON object in one of these formats:
+
+      For VALID cloth:
+      {"type":"[Identified Type]", "damage_percent":[0-100], "reason":"[1 sentence summary of quality]", "quantity": [number, minimum 1]}
+
+      For NON_CLOTHING:
+      {"type":"NON_CLOTHING", "damage_percent":100, "reason":"Not a cloth item", "quantity": 0}
+
+      For HUMAN DETECTED:
+      {"error_type":"human_detected", "error_message":"Not acceptable image, human detected"}
       """;
 
       final apiUrl =
-          "https://generativelanguage.googleapis.com/v1beta/models/$_GEMINI_MODEL:generateContent?key=$_GEMINI_API_KEY";
+          "https://generativelanguage.googleapis.com/v1beta/models/$_geminiModel:generateContent?key=$_geminiApiKey";
 
       final payload = {
         "contents": [
@@ -129,9 +227,19 @@ class _AddClothScreenState extends State<AddClothScreen> {
             "properties": {
               "type": {"type": "STRING"},
               "damage_percent": {"type": "INTEGER"},
-              "reason": {"type": "STRING"}
+              "reason": {"type": "STRING"},
+              "quantity": {"type": "INTEGER"},
+              "error_type": {"type": "STRING"},
+              "error_message": {"type": "STRING"}
             },
-            "propertyOrdering": ["type", "damage_percent", "reason"]
+            "propertyOrdering": [
+              "type",
+              "damage_percent",
+              "reason",
+              "quantity",
+              "error_type",
+              "error_message"
+            ]
           }
         }
       };
@@ -149,9 +257,34 @@ class _AddClothScreenState extends State<AddClothScreen> {
         final aiData = jsonDecode(jsonString);
 
         if (aiData != null) {
+          // Check for error responses first
+          final errorType = aiData['error_type']?.toString();
+          final errorMessage = aiData['error_message']?.toString();
+
+          if (errorType != null && errorMessage != null) {
+            // Handle rejection cases: human detected or poor quality
+            setState(() {
+              _imageFile = null; // Clear image to prevent accidental submission
+              _pickedXFile = null; // Clear the picked file as well
+              _estimatedDamagePercent = 0;
+              _ecoPoints = 0;
+              _detectionMessage = errorMessage;
+              _selectedType = 'Apparel'; // Reset to a default valid category
+            });
+            throw Exception(errorMessage);
+          }
+
+          // Handle valid responses
           final detectedType = aiData['type']?.toString() ?? 'Other';
           final damage = aiData['damage_percent'] as int? ?? 100;
           final reason = aiData['reason'] as String? ?? 'Analysis complete.';
+          int aiQuantity = 1;
+          if (aiData.containsKey('quantity')) {
+            aiQuantity = aiData['quantity'] is int
+                ? aiData['quantity']
+                : int.tryParse(aiData['quantity'].toString()) ?? 1;
+            if (aiQuantity < 1) aiQuantity = 1;
+          }
 
           if (detectedType.toUpperCase() == 'NON_CLOTHING' || damage > 80) {
             _handleRejection(detectedType, damage, reason);
@@ -179,27 +312,46 @@ class _AddClothScreenState extends State<AddClothScreen> {
           }
           // Default remains 'Other' if no match is found.
 
-          // Successful analysis
+          // Set condition based on damage percent (AI only)
+          String aiCondition = 'Good';
+          if (damage > 30 && damage <= 80) {
+            aiCondition = 'Fair';
+          } else if (damage > 80) {
+            aiCondition = 'Poor';
+          }
           setState(() {
             _estimatedDamagePercent = damage;
-            // Set the state variable to the master category
             _selectedType = masterCategory;
+            _selectedCondition = aiCondition;
+            _quantityController.text = aiQuantity.toString();
             _detectionMessage =
-                'Analysis complete. Item set to: $masterCategory, Damage estimated at $damage%.';
+                'Analysis complete. Item set to: $masterCategory, Damage estimated at $damage%. Condition: $aiCondition. Quantity: $aiQuantity.';
+            _aiError = null;
           });
+          _updateEcoPoints();
 
           _showSnackbar(
-              'Item detected: $detectedType. Damage: $damage%. Accepted for donation.');
+              'Item detected: $detectedType. Damage: $damage%. Condition: $aiCondition. Quantity: $aiQuantity. Accepted for recycling.');
         } else {
-          throw Exception('AI analysis failed to return expected JSON.');
+          setState(() {
+            _aiError =
+                'Image analysis encountered an error. Please try uploading the photo again.';
+          });
+          throw Exception(
+              'Image analysis encountered an error. Please try uploading the photo again.');
         }
       } else {
         throw Exception(
             'Gemini API failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      debugPrint('AI Detection Error: $e');
-      _showSnackbar('AI Detection Error: ${e.toString()}');
+      // print(...);
+      setState(() {
+        _aiError =
+            'Image analysis failed. Please try uploading the photo again.';
+      });
+      _showSnackbar(
+          'Image analysis failed. Please try uploading the photo again.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -209,15 +361,18 @@ class _AddClothScreenState extends State<AddClothScreen> {
     if (mounted) {
       String message;
       if (type.toUpperCase() == 'NON_CLOTHING') {
-        message = 'Item rejected: Only clothing/fabric is accepted.';
+        message =
+            'Item not accepted: We only accept clothing and fabric items for donation.';
       } else {
-        message = 'Item rejected: Damage ($damage%) exceeds 80% limit. $reason';
+        message =
+            'Item not accepted: Damage level ($damage%) exceeds our 80% threshold. $reason';
       }
 
       setState(() {
         _imageFile = null;
         _pickedXFile = null;
         _estimatedDamagePercent = 0;
+        _ecoPoints = 0;
         _detectionMessage = message;
         _selectedType = 'Apparel'; // Reset to a valid default value
       });
@@ -243,13 +398,13 @@ class _AddClothScreenState extends State<AddClothScreen> {
         _pickedXFile == null ||
         _estimatedDamagePercent > 80) {
       _showSnackbar(
-          'Please ensure all fields are filled, a photo is uploaded, and the damage is acceptable (<= 80%).');
+          'Please complete all required fields, upload a photo, and ensure the item meets our damage criteria.');
       return;
     }
 
     final userId = AppSupabase.client.auth.currentUser?.id;
     if (userId == null) {
-      _showSnackbar('Authentication error. Please log in again.');
+      _showSnackbar('Session expired. Please log in again to continue.');
       return;
     }
 
@@ -276,6 +431,8 @@ class _AddClothScreenState extends State<AddClothScreen> {
         location: _locationController.text,
         imageUrl: imageUrl,
         estimatedDamagePercent: _estimatedDamagePercent,
+        latitude: _latitude,
+        longitude: _longitude,
       );
 
       if (mounted) {
@@ -283,8 +440,9 @@ class _AddClothScreenState extends State<AddClothScreen> {
         _showSnackbar('Donation submitted successfully for review.');
       }
     } catch (e) {
-      debugPrint('Submission Error: $e');
-      _showSnackbar('Submission failed: Check connection and permissions.');
+      // print(...);
+      _showSnackbar(
+          'Submission failed. Please check your connection and try again.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -301,13 +459,15 @@ class _AddClothScreenState extends State<AddClothScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('donate_clothes')),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
-            ),
-          ),
-        ),
+        flexibleSpace: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+                  ),
+                ),
+              ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -316,16 +476,38 @@ class _AddClothScreenState extends State<AddClothScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Step 1
               Text(
-                'Step 1: Photo Analysis (80% Max Damage)',
+                'Step 1: Photo Analysis (AI detects type, condition, and number of items)',
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
-                'Capture an image to automatically check if the item is clothing and assess its damage.',
+                'Capture an image to automatically check if the item is clothing, assess its damage, and count the number of items. Any AI detection errors will be shown below.',
                 style: TextStyle(color: theme.hintColor),
               ),
+              if (_aiError != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    border: Border.all(color: Colors.red.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error, color: Colors.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Text(_aiError ?? '',
+                              style: const TextStyle(color: Colors.red))),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
 
               // --- Image Capture/Detection Area ---
@@ -358,7 +540,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
                               Icon(Icons.camera_alt,
                                   size: 56,
                                   color: theme.colorScheme.primary
-                                      .withOpacity(0.6)),
+                                      .withValues(alpha: 0.6)),
                               const SizedBox(height: 12),
                               Text(_detectionMessage,
                                   style: const TextStyle(fontSize: 16)),
@@ -366,7 +548,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
                           )
                         : _isLoading
                             ? Container(
-                                color: Colors.black.withOpacity(0.5),
+                                color: Colors.black.withValues(alpha: 0.5),
                                 child: const Center(
                                     child: CircularProgressIndicator(
                                         color: Colors.white)),
@@ -383,8 +565,8 @@ class _AddClothScreenState extends State<AddClothScreen> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isRejectedByDamage
-                        ? Colors.red.withOpacity(0.1)
-                        : Colors.green.withOpacity(0.1),
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : Colors.green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                         color: isRejectedByDamage
@@ -427,6 +609,7 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 const SizedBox(height: 24),
               ],
 
+              // Step 2
               Text(
                 'Step 2: Donation Details',
                 style: theme.textTheme.titleLarge
@@ -434,11 +617,11 @@ class _AddClothScreenState extends State<AddClothScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Cloth Type Dropdown (User can override AI suggestion)
+              // Cloth Type Dropdown (AI only, disabled for user)
               DropdownButtonFormField<String>(
                 initialValue: _selectedType,
                 decoration: InputDecoration(
-                  labelText: 'Cloth Type',
+                  labelText: 'Cloth Type (AI detected)',
                   prefixIcon: const Icon(Icons.style_outlined),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -449,13 +632,10 @@ class _AddClothScreenState extends State<AddClothScreen> {
                     child: Text(type),
                   );
                 }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedType = newValue!;
-                  });
-                },
+                onChanged: null, // Disabled
                 validator: (value) =>
                     value == null ? tr('required_field') : null,
+                disabledHint: Text(_selectedType),
               ),
               const SizedBox(height: 16),
 
@@ -470,21 +650,23 @@ class _AddClothScreenState extends State<AddClothScreen> {
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
-                  if (value == null || value.isEmpty)
+                  if (value == null || value.isEmpty) {
                     return tr('required_field');
-                  if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                    return 'Enter a valid positive number';
+                  }
+                  final intVal = int.tryParse(value);
+                  if (intVal == null || intVal < 1) {
+                    return 'Minimum quantity is 1';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
 
-              // Condition Dropdown (User's subjective assessment)
+              // Condition Dropdown (AI only, disabled for user)
               DropdownButtonFormField<String>(
                 initialValue: _selectedCondition,
                 decoration: InputDecoration(
-                  labelText: 'Condition (Your rating)',
+                  labelText: 'Condition (AI detected)',
                   prefixIcon: const Icon(Icons.check_box_outlined),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -495,25 +677,34 @@ class _AddClothScreenState extends State<AddClothScreen> {
                     child: Text(condition),
                   );
                 }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedCondition = newValue!;
-                  });
-                },
+                onChanged: null, // Disabled
                 validator: (value) =>
                     value == null ? tr('required_field') : null,
+                disabledHint: Text(_selectedCondition),
               ),
               const SizedBox(height: 16),
 
-              // Pickup Location
+              // Step 3
+              Text(
+                'Step 3: Pickup Location / Address',
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _locationController,
                 maxLines: 2,
+                readOnly: _isLoading,
                 decoration: InputDecoration(
                   labelText: 'Pickup Location / Address',
                   prefixIcon: const Icon(Icons.location_on_outlined),
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.my_location, color: Colors.blue),
+                    onPressed: _isLoading ? null : _getCurrentLocation,
+                    tooltip: 'Use Current Location',
+                  ),
                 ),
                 validator: (value) =>
                     value?.isEmpty == true ? tr('required_field') : null,
@@ -521,6 +712,30 @@ class _AddClothScreenState extends State<AddClothScreen> {
               const SizedBox(height: 32),
 
               // Submit Button
+              // Eco Points Display
+              if (_ecoPoints > 0 && !isRejectedByDamage) ...[
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.teal.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.stars, color: Colors.teal),
+                      const SizedBox(width: 8),
+                      Text('Estimated EcoPoints: $_ecoPoints',
+                          style: TextStyle(
+                              color: Colors.teal.shade800,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(

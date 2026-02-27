@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:EcoCycle/screens/home_screen.dart';
-import 'package:EcoCycle/screens/tracking_screen.dart';
-import 'package:EcoCycle/screens/rewards_screen.dart';
-import 'package:EcoCycle/screens/volunteer_dashboard.dart';
-import 'package:EcoCycle/screens/admin_dashboard.dart';
-import 'package:EcoCycle/screens/volunteer_choice_screen.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
-import 'package:EcoCycle/services/profile_service.dart';
+import 'package:ecocycle/screens/home_screen.dart';
+import 'package:ecocycle/screens/tracking_screen.dart';
+import 'package:ecocycle/screens/rewards_screen.dart';
+import 'package:ecocycle/screens/volunteer_dashboard.dart';
+import 'package:ecocycle/screens/admin_dashboard.dart';
+import 'package:ecocycle/screens/volunteer_choice_screen.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/services/profile_service.dart';
 
 class HomeShell extends StatefulWidget {
   final VoidCallback toggleTheme;
@@ -25,6 +25,7 @@ class _HomeShellState extends State<HomeShell> {
   final _profileService = ProfileService();
 
   late final List<Widget> _userScreens;
+  late final PageController _pageController;
 
   @override
   void initState() {
@@ -35,6 +36,13 @@ class _HomeShellState extends State<HomeShell> {
       HomeScreen(toggleTheme: widget.toggleTheme),
       const RewardsScreen(),
     ];
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserRole() async {
@@ -45,7 +53,7 @@ class _HomeShellState extends State<HomeShell> {
           _userRole = widget.forcedRole;
           _isLoadingRole = false;
         });
-        debugPrint('FORCED USER ROLE: $_userRole');
+        // print(...);
       }
       return;
     }
@@ -69,10 +77,10 @@ class _HomeShellState extends State<HomeShell> {
         });
 
         // DEBUG PRINT: Log the role for troubleshooting
-        debugPrint('LOGIN: User role fetched: $_userRole');
+        // print(...);
       }
     } catch (e) {
-      debugPrint('Error fetching user role for routing: $e');
+      // print(...);
       if (mounted) {
         setState(() {
           _userRole = 'user';
@@ -100,52 +108,79 @@ class _HomeShellState extends State<HomeShell> {
 
     // 1. ROUTE ADMIN
     if (_userRole == 'admin') {
-      debugPrint('ROUTING: Admin dashboard');
+      // print(...);
       return const AdminDashboard();
     }
 
     // 2. ROUTE AGENT
     if (_userRole == 'agent') {
-      debugPrint('ROUTING: Agent dashboard');
-      return const VolunteerDashboard();
+      // print(...);
+      return VolunteerDashboard(toggleTheme: widget.toggleTheme);
     }
 
     // 3. ROUTE VOLUNTEER - Show choice screen if no forced role
     if (_userRole == 'volunteer' && widget.forcedRole == null) {
-      debugPrint('ROUTING: Volunteer choice screen (no forced role)');
+      // print(...);
       return VolunteerChoiceScreen(onThemeToggle: widget.toggleTheme);
     }
 
     // 4. ROUTE FORCED VOLUNTEER/USER
     if (_userRole == 'volunteer' || widget.forcedRole == 'volunteer') {
-      debugPrint('ROUTING: Volunteer dashboard (forced or confirmed)');
-      return const VolunteerDashboard();
+      // print(...);
+      return VolunteerDashboard(toggleTheme: widget.toggleTheme);
     }
 
     // 5. STANDARD USER NAVIGATION
-    debugPrint('ROUTING: Standard user navigation');
-    return Scaffold(
-      body: _userScreens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.track_changes),
-            label: tr('tracking'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.home),
-            label: tr('home'),
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.star_outline),
-            label: tr('rewards'),
-          ),
-        ],
+    // print(...);
+    return PopScope(
+      canPop: _currentIndex == 1, // Only allow pop when on home screen
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentIndex != 1) {
+          // If pop was prevented and not on home, navigate to home
+          setState(() => _currentIndex = 1);
+          _pageController.animateToPage(
+            1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      },
+      child: Scaffold(
+        body: PageView(
+          controller: _pageController,
+          onPageChanged: (index) {
+            setState(() => _currentIndex = index);
+          },
+          children: _userScreens,
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() => _currentIndex = index);
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          },
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: Colors.green,
+          unselectedItemColor: Colors.grey,
+          items: [
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.track_changes),
+              label: tr('tracking'),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.home),
+              label: tr('home'),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.star_outline),
+              label: tr('rewards'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../core/supabase_config.dart';
-import '../models/volunteer_application.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/models/volunteer_application.dart';
 
 class ProfileService {
   final SupabaseClient supabase = AppSupabase.client;
@@ -10,27 +10,27 @@ class ProfileService {
   /// IMPORTANT: This now properly handles upsert to ensure data is saved
   Future<void> updateProfile({
     required String userId,
-    required String fullName,
+    required String firstName,
+    required String lastName,
     required String phone,
-    required String address,
+    required String houseName,
+    required String pinCode,
   }) async {
     try {
       // Use upsert to ensure the row exists and is updated
-      final response = await supabase.from('profiles').upsert({
+      await supabase.from('profiles').upsert({
         'id': userId,
-        'full_name': fullName.trim(),
+        'first_name': firstName.trim(),
+        'last_name': lastName.trim(),
         'phone_number': phone.trim(),
-        'address': address.trim(),
+        'house_name': houseName.trim(),
+        'pin_code': pinCode.trim(),
+        'address': '$houseName - $pinCode', // Legacy address sync
         'user_role':
             'user', // Ensure user_role is set to avoid constraint violation
         'updated_at': DateTime.now().toIso8601String(),
       });
-
-      // Log success
-      print('Profile updated successfully for user: $userId');
-      print('Response: $response');
     } catch (e) {
-      print('ERROR updating profile for user $userId: $e');
       rethrow; // Re-throw so calling code knows about the error
     }
   }
@@ -79,7 +79,7 @@ class ProfileService {
     return await supabase
         .from('profiles')
         .select(
-            'id, full_name, phone_number, address, user_role, total_points, volunteer_requested_at, supervisor_id')
+            'id, first_name, last_name, full_name, phone_number, address, user_role, total_points, volunteer_requested_at, supervisor_id')
         .eq('id', userId)
         .maybeSingle();
   }
@@ -96,7 +96,6 @@ class ProfileService {
           .maybeSingle();
 
       if (userProfile == null || userProfile['supervisor_id'] == null) {
-        print('No supervisor found for user: $userId');
         return null;
       }
 
@@ -109,10 +108,8 @@ class ProfileService {
           .eq('id', supervisorId)
           .maybeSingle();
 
-      print('Supervisor details fetched: $supervisorProfile');
       return supervisorProfile;
     } catch (e) {
-      print('ERROR fetching supervisor details: $e');
       return null;
     }
   }
@@ -131,13 +128,9 @@ class ProfileService {
         final List<Map<String, dynamic>> profiles =
             (data as List).cast<Map<String, dynamic>>();
 
-        print(
-            '✓ Profiles fetched successfully from admin_user_details: ${profiles.length} profiles');
         return profiles;
       } catch (viewError) {
         // Fallback to profiles table if view doesn't exist
-        print(
-            '⚠️ admin_user_details view not available, using profiles table: $viewError');
         final data = await supabase
             .from('profiles')
             .select(
@@ -147,12 +140,9 @@ class ProfileService {
         final List<Map<String, dynamic>> profiles =
             (data as List).cast<Map<String, dynamic>>();
 
-        print(
-            '✓ Profiles fetched successfully from profiles table: ${profiles.length} profiles');
         return profiles;
       }
     } catch (e) {
-      print('✗ Error fetching profiles: $e');
       return []; // Return empty list instead of rethrowing to prevent cascading failures
     }
   }
@@ -162,9 +152,11 @@ class ProfileService {
     // 1. Ensure profile has the latest contact info from the app
     await updateProfile(
       userId: app.userId,
-      fullName: app.fullName,
+      firstName: app.fullName.split(' ').first,
+      lastName: app.fullName.contains(' ') ? app.fullName.split(' ').last : '',
       phone: app.phone,
-      address: app.address,
+      houseName: app.address.split(',').first,
+      pinCode: '', // Not easily splittable from old format
     );
 
     // 2. Insert detailed application
@@ -183,13 +175,10 @@ class ProfileService {
           .from('volunteer_applications')
           .select()
           .order('created_at', ascending: false);
-      print(
-          '✓ All volunteer applications fetched: ${(res as List).length} applications');
       return (res as List)
           .map((e) => VolunteerApplication.fromJson(e))
           .toList();
     } catch (e) {
-      print('✗ Error fetching volunteer applications: $e');
       return []; // Return empty list instead of rethrowing to prevent cascading failures
     }
   }
@@ -237,21 +226,17 @@ class ProfileService {
         final profile = await fetchProfile(userId);
         try {
           await supabase.from('pickup_requests').insert({
-            'agent_id': userId,
+            'id': userId,
             'name': profile?['full_name'] ?? 'Volunteer',
             'phone': profile?['phone_number'] ?? 'N/A',
             'email': profile?['email'] ?? 'N/A',
             'is_active': true,
           });
         } catch (e) {
-          print('Note: Could not create pickup_request: $e');
           // Not critical if this fails
         }
       }
-
-      print('Application decision successful: $newStatus');
     } catch (e) {
-      print('Error in decideOnApplication: $e');
       rethrow;
     }
   }
@@ -271,26 +256,93 @@ class ProfileService {
     }).eq('id', userId);
   }
 
-  // --- NOTIFICATION METHODS ---
+  /// Fetches a user's email address for notifications securely
+  Future<String?> _getUserEmail(String userId) async {
+    try {
+      // Use the security definer RPC to bypass RLS
+      final response = await supabase.rpc('get_user_email_secure', params: {
+        'p_user_id': userId,
+      });
+      return response as String?;
+    } catch (e) {
+      // Fallback to existing view if RPC fails
+      try {
+        final viewData = await supabase
+            .from('admin_user_details')
+            .select('email')
+            .eq('id', userId)
+            .maybeSingle();
+        return viewData?['email'] as String?;
+      } catch (_) {
+        return null;
+      }
+    }
+  }
 
   Future<void> sendEmailNotification(
-      String userId, String subject, String message) async {
-    // Integration placeholder
-    print('Notification for $userId: $subject - $message');
+      String userId, String subject, String message,
+      {String importance = 'normal'}) async {
+    try {
+      // 1. Persist notification to database so user can see it in-app
+      await supabase.from('notifications').insert({
+        'user_id': userId,
+        'title': subject,
+        'message': message,
+        'type': 'email_notification',
+        'importance': importance,
+        'is_read': false,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      // 2. Fetch recipient email
+      final email = await _getUserEmail(userId);
+
+      if (email != null && email.isNotEmpty) {
+        // 3. Call Supabase RPC to send real email
+        await supabase.rpc('send_notification_email', params: {
+          'recipient_email': email,
+          'email_subject': subject,
+          'email_message': message,
+        });
+      }
+    } catch (e) {
+      // Log error but don't block the UI flow
+    }
   }
 
   Future<void> sendStatusUpdateNotification(
       String userId, String itemName, String newStatus) async {
+    // Status updates are normal importance (won't show for regular users)
     await sendEmailNotification(userId, 'EcoCycle Status Update',
-        'Your item "$itemName" is now: $newStatus.');
+        'Your item "$itemName" is now: $newStatus.',
+        importance: 'normal');
   }
 
-  /// Notifies the user about earned points (Required by EwasteService)
+  /// Notifies the user about earned points (Required by EwasteService) - HIGH importance
   Future<void> sendPointsEarnedNotification(
       String userId, String itemName, int points) async {
     final subject = 'EcoPoints Earned!';
     final message = 'You earned $points EcoPoints for recycling "$itemName".';
-    await sendEmailNotification(userId, subject, message);
+    await sendEmailNotification(userId, subject, message, importance: 'high');
+  }
+
+  /// Notifies the user about their OTP for collection verification - HIGH importance
+  Future<void> sendOtpNotification(
+      String userId, String otp, String itemName) async {
+    try {
+      await supabase.from('notifications').insert({
+        'user_id': userId,
+        'title': 'Collection Verification Code',
+        'message':
+            'Your verification code for the collection of "$itemName" is: $otp. Valid for 10 minutes.',
+        'type': 'otp_message',
+        'importance': 'high',
+        'is_read': false,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      // Log error or handle gracefully
+    }
   }
 
   /// Deletes a user account and all associated data
@@ -318,21 +370,21 @@ class ProfileService {
       // 4. Delete e-waste items
       await supabase.from('ewaste_items').delete().eq('user_id', userId);
 
-      // 5. Delete cloth items
-      await supabase.from('cloth_items').delete().eq('user_id', userId);
+      // 5. Delete cloth items (Correct table name: cloth_donations)
+      await supabase.from('cloth_donations').delete().eq('user_id', userId);
 
-      // 6. Delete pickup agent entry if exists
+      // 6. Delete plastic items
+      await supabase.from('plastic_items').delete().eq('user_id', userId);
+
+      // 7. Delete pickup agent entry if exists
       await supabase.from('pickup_requests').delete().eq('id', userId);
 
-      // 7. Delete notifications
+      // 8. Delete notifications
       await supabase.from('notifications').delete().eq('user_id', userId);
 
-      // 8. Finally delete the profile
+      // 9. Finally delete the profile
       await supabase.from('profiles').delete().eq('id', userId);
-
-      print('User $userId and all associated data deleted successfully');
     } catch (e) {
-      print('ERROR deleting user $userId: $e');
       rethrow;
     }
   }
@@ -346,5 +398,31 @@ class ProfileService {
     }
   }
 
-  /// Fetches all volunteer applications (Admin only)
+  /// Revokes volunteer status and allows them to re-apply
+  Future<void> revokeVolunteerStatus(
+      String appId, String userId, String? comment) async {
+    try {
+      // 1. Delete from applications so they can re-apply
+      await supabase.from('volunteer_applications').delete().eq('id', appId);
+
+      // 2. Set role back to user
+      await supabase.from('profiles').update({
+        'user_role': 'user',
+        'volunteer_requested_at': null,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
+
+      // 3. Remove from pickup_requests if they were added as a picker
+      await supabase.from('pickup_requests').delete().eq('id', userId);
+
+      // 4. Send notification if a comment is provided - HIGH importance
+      if (comment != null && comment.isNotEmpty) {
+        await sendEmailNotification(
+            userId, 'Volunteer Status Revoked', 'Comment: $comment',
+            importance: 'high');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

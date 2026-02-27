@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../models/ewaste_item.dart';
 import '../services/ewaste_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/supabase_config.dart'; // Import for Supabase client
 import 'login_screen.dart'; // REQUIRED for navigation after logout
 
@@ -93,6 +94,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
   }
 
   Future<void> _markAsCollected(EwasteItem item) async {
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -124,6 +126,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
   }
 
   Future<void> _markAsDelivered(EwasteItem item) async {
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -169,6 +172,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
 
   // --- Logout Functionality ---
   Future<void> _logout() async {
+    if (!mounted) return;
     final shouldSignOut = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -194,21 +198,19 @@ class _AgentDashboardState extends State<AgentDashboard> {
     if (shouldSignOut == true) {
       try {
         await AppSupabase.client.auth.signOut();
-        if (context.mounted) {
-          // Navigate back to login screen and remove all other routes
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const LoginScreen(),
-            ),
-            (r) => false,
-          );
-        }
+        if (!mounted) return;
+        // Navigate back to login screen and remove all other routes
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const LoginScreen(),
+          ),
+          (r) => false,
+        );
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to sign out: $e')),
-          );
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to sign out: $e')),
+        );
       }
     }
   }
@@ -294,14 +296,23 @@ class _AgentDashboardState extends State<AgentDashboard> {
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
                                       child: item.imageUrl.isNotEmpty
-                                          ? Image.network(
-                                              item.imageUrl,
+                                          ? CachedNetworkImage(
+                                              imageUrl: item.imageUrl,
                                               width: 70,
                                               height: 70,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error,
-                                                      stackTrace) =>
+                                              memCacheHeight: 200,
+                                              placeholder: (context, url) =>
                                                   Container(
+                                                width: 70,
+                                                height: 70,
+                                                color: Colors.grey[200],
+                                                child: const Icon(Icons.image,
+                                                    color: Colors.grey),
+                                              ),
+                                              errorWidget:
+                                                  (context, url, error) =>
+                                                      Container(
                                                 width: 70,
                                                 height: 70,
                                                 color: Colors.grey[200],
@@ -391,7 +402,7 @@ class _AgentDashboardState extends State<AgentDashboard> {
                                       decoration: BoxDecoration(
                                         color:
                                             _getStatusColor(item.deliveryStatus)
-                                                .withOpacity(0.15),
+                                                .withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_config.dart';
 import '../models/cloth_item.dart';
 // NEW IMPORT for image uploading
+import 'profile_service.dart';
 
 class ClothService {
   final SupabaseClient supabase = AppSupabase.client;
@@ -36,6 +37,8 @@ class ClothService {
     required String location,
     required String imageUrl, // ADDED
     required int estimatedDamagePercent, // ADDED
+    double? latitude,
+    double? longitude,
   }) async {
     // Determine acceptance based on your rule (e.g., 80% damage or less accepted)
     final isAcceptable = estimatedDamagePercent <= 80;
@@ -52,6 +55,8 @@ class ClothService {
       'image_url': imageUrl, // ADDED
       'damage_percent': estimatedDamagePercent, // ADDED
       'status': initialStatus, // USING DYNAMIC STATUS
+      'latitude': latitude,
+      'longitude': longitude,
     });
   }
 
@@ -73,10 +78,10 @@ class ClothService {
           .from('cloth_donations')
           .select()
           .order('created_at', ascending: false);
-      print('✓ Cloth items fetched: ${(data as List).length} items');
+      // print(...);
       return (data as List).map((e) => ClothItem.fromJson(e)).toList();
     } catch (e) {
-      print('✗ Error fetching cloth items: $e');
+      // print(...);
       rethrow;
     }
   }
@@ -91,7 +96,7 @@ class ClothService {
           .order('created_at', ascending: false);
       return (data as List).map((e) => ClothItem.fromJson(e)).toList();
     } catch (e) {
-      print('✗ Error fetching cloth items by status: $e');
+      // print(...);
       rethrow;
     }
   }
@@ -104,38 +109,143 @@ class ClothService {
   }
 
   /// Assigns a Pickup Agent to a cloth donation.
-  Future<void> assignPickupAgent(String itemId, String agentId) async {
+  Future<void> assignPickupAgent(int itemId, String agentId) async {
     await supabase.from('cloth_donations').update({
       'assigned_agent_id': agentId,
       'delivery_status': 'assigned',
       'status': 'Approved', // Valid status for cloth_donations
     }).eq('id', itemId);
+
+    // Send status update notification
+    final item = await supabase
+        .from('cloth_donations')
+        .select('user_id, type')
+        .eq('id', itemId)
+        .single();
+
+    final profileService = ProfileService();
+    await profileService.sendStatusUpdateNotification(item['user_id'],
+        item['type'], 'Assigned - Agent assigned for cloth pickup');
   }
 
   /// Assigns an NGO as the final destination for a cloth donation.
-  Future<void> assignNgo(String itemId, String ngoId) async {
+  Future<void> assignNgo(int itemId, String ngoId) async {
     await supabase.from('cloth_donations').update({
       'assigned_ngo_id': ngoId,
     }).eq('id', itemId);
   }
 
+  /// Schedules pickup for a cloth donation.
+  Future<void> schedulePickup(int itemId, DateTime pickupDate) async {
+    await supabase.from('cloth_donations').update({
+      'pickup_scheduled_at': pickupDate.toIso8601String(),
+      'delivery_status': 'scheduled',
+    }).eq('id', itemId);
+  }
+
   /// Marks a cloth donation as collected by the agent.
-  Future<void> markAsCollected(String itemId) async {
+  Future<void> markAsCollected(int itemId, {String? providedOtp}) async {
+    // If OTP is provided, verify it first
+    if (providedOtp != null) {
+      final item = await supabase
+          .from('cloth_donations')
+          .select('otp_code')
+          .eq('id', itemId)
+          .single();
+
+      final storedOtp = item['otp_code'] as String?;
+      if (storedOtp != null && storedOtp != providedOtp) {
+        throw Exception(
+            'Invalid OTP. Please ask the user for the correct code.');
+      }
+    }
+
     final now = DateTime.now();
     await supabase.from('cloth_donations').update({
       'delivery_status': 'collected',
       'status': 'Collected', // Valid status for cloth_donations
       'collected_at': now.toIso8601String(),
     }).eq('id', itemId);
+
+    await _addTrackingNote(
+        itemId, 'Cloth donation collected by pickup agent', now);
   }
 
   /// Marks a cloth donation as delivered to the NGO.
-  Future<void> markAsDelivered(String itemId) async {
+  Future<void> markAsDelivered(int itemId) async {
     final now = DateTime.now();
     await supabase.from('cloth_donations').update({
       'delivery_status': 'delivered',
       'status': 'Donated', // Valid status for cloth_donations
       'delivered_at': now.toIso8601String(),
     }).eq('id', itemId);
+
+    await _addTrackingNote(itemId, 'Cloth donation delivered to NGO', now);
+
+    // Credit EcoPoints
+    final item = await supabase
+        .from('cloth_donations')
+        .select('user_id, type, assigned_agent_id')
+        .eq('id', itemId)
+        .single();
+
+    final profileService = ProfileService();
+    // User points for cloth (fixed reward for now)
+    if (item['user_id'] != null) {
+      await profileService.addEcoPoints(item['user_id'], 50);
+      await profileService.sendPointsEarnedNotification(
+          item['user_id'], item['type'], 50);
+    }
+
+    // Award points to volunteer
+    if (item['assigned_agent_id'] != null) {
+      const volunteerReward = 75; // Cloth reward
+      await profileService.addEcoPoints(
+          item['assigned_agent_id'], volunteerReward);
+    }
+  }
+
+  /// Generates a 6-digit OTP and saves it to the item.
+  Future<String> generateAndSaveOtp(int itemId) async {
+    final String otp =
+        (100000 + DateTime.now().millisecondsSinceEpoch % 900000).toString();
+    await supabase
+        .from('cloth_donations')
+        .update({'otp_code': otp}).eq('id', itemId);
+    return otp;
+  }
+
+  /// Internal method to append a note to the item's tracking history.
+  Future<void> _addTrackingNote(
+      int itemId, String note, DateTime timestamp) async {
+    final currentItem = await supabase
+        .from('cloth_donations')
+        .select('tracking_notes')
+        .eq('id', itemId)
+        .single();
+
+    final existingNotes = currentItem['tracking_notes'] as List<dynamic>? ?? [];
+    existingNotes.add({
+      'note': note,
+      'timestamp': timestamp.toIso8601String(),
+    });
+
+    await supabase.from('cloth_donations').update({
+      'tracking_notes': existingNotes,
+    }).eq('id', itemId);
+  }
+
+  /// Fetches items specifically assigned to a given Pickup Agent.
+  Future<List<ClothItem>> fetchItemsForAgent(String agentId) async {
+    try {
+      final data = await supabase
+          .from('cloth_donations')
+          .select()
+          .eq('assigned_agent_id', agentId)
+          .order('created_at', ascending: false);
+      return (data as List).map((e) => ClothItem.fromJson(e)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 }

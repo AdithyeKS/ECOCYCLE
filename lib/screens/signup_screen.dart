@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
-import 'package:EcoCycle/screens/profile_completion_screen.dart';
+import 'package:ecocycle/app_theme.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/screens/profile_completion_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   final VoidCallback? onThemeToggle;
@@ -12,10 +13,12 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _form = GlobalKey<FormState>();
-  final _name = TextEditingController();
+  final _firstName = TextEditingController();
+  final _lastName = TextEditingController();
   final _phone = TextEditingController();
   final _email = TextEditingController();
-  final _address = TextEditingController(); // NEW: Address controller
+  final _houseName = TextEditingController();
+  final _pinCode = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
   String? _msg;
@@ -69,9 +72,11 @@ class _SignupScreenState extends State<SignupScreen> {
         email: _email.text.trim(),
         password: _password.text,
         data: {
-          'full_name': _name.text.trim(),
+          'first_name': _firstName.text.trim(),
+          'last_name': _lastName.text.trim(),
           'phone': _phone.text.trim(),
-          'address': _address.text.trim(), // NEW: Save address to metadata
+          'house_name': _houseName.text.trim(),
+          'pin_code': _pinCode.text.trim(),
         },
         emailRedirectTo: null,
       );
@@ -102,10 +107,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
-    _name.dispose();
+    _firstName.dispose();
+    _lastName.dispose();
     _phone.dispose();
     _email.dispose();
-    _address.dispose(); // NEW: Dispose address
+    _houseName.dispose();
+    _pinCode.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -145,10 +152,9 @@ class _SignupScreenState extends State<SignupScreen> {
       Widget? suffixIcon}) {
     return InputDecoration(
       labelText: labelText,
-      prefixIcon:
-          Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
+      prefixIcon: Icon(prefixIcon, color: AppTheme.light.colorScheme.primary),
       suffixIcon: suffixIcon,
-      fillColor: Theme.of(context).cardColor.withOpacity(0.8),
+      fillColor: AppTheme.light.cardColor.withValues(alpha: 0.8),
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -156,20 +162,21 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide:
-            BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        borderSide: BorderSide(
+            color: AppTheme.light.dividerColor.withValues(alpha: 0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide:
-            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+            BorderSide(color: AppTheme.light.colorScheme.primary, width: 2),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    // FORCE LIGHT THEME
+    final theme = AppTheme.light;
     final passwordText = _password.text;
 
     final hasMinLength = passwordText.length >= 8;
@@ -181,205 +188,240 @@ class _SignupScreenState extends State<SignupScreen> {
     final hasSpecialChar = _checkPasswordRequirement(
         passwordText, RegExp(r'[!@#$%^&*()_+={}|:;<>,.?/~]'));
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Background Gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.teal.shade800,
-                  Colors.green.shade700,
-                  Colors.green.shade900,
-                ],
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // Background Gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.teal.shade800,
+                    Colors.green.shade700,
+                    Colors.green.shade900,
+                  ],
+                ),
               ),
             ),
-          ),
-          // Content
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Card(
-                  elevation: 20,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                  color: theme.cardColor.withOpacity(0.95),
-                  child: Padding(
-                    padding: const EdgeInsets.all(30),
-                    child: Form(
-                      key: _form,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Center(
-                            child: Column(
-                              children: [
-                                Image.asset('assets/images/ecocycle.png',
-                                    height: 80),
-                                const SizedBox(height: 16),
-                                Text('Create Account',
-                                    style: theme.textTheme.headlineMedium
-                                        ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: theme.colorScheme.primary)),
-                                const SizedBox(height: 8),
-                                Text('Sign up to join our recycling community',
-                                    style: theme.textTheme.bodyMedium),
-                                const SizedBox(height: 24),
-                              ],
-                            ),
-                          ),
-                          // Full name
-                          TextFormField(
-                            controller: _name,
-                            decoration: _customInputDecoration(
-                                labelText: 'Full name',
-                                prefixIcon: Icons.person_outline),
-                            validator: (v) {
-                              if (v == null || v.trim().length < 3)
-                                return 'Please enter at least 3 characters.';
-                              if (!_nameRegex.hasMatch(v.trim()))
-                                return 'Please start with a capital letter.';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          // Mobile number
-                          TextFormField(
-                            controller: _phone,
-                            decoration: _customInputDecoration(
-                                labelText: 'Mobile number',
-                                prefixIcon: Icons.phone_outlined),
-                            keyboardType: TextInputType.phone,
-                            validator: (v) => (v == null ||
-                                    !_phoneRegex.hasMatch(v.trim()))
-                                ? 'Please enter a valid phone number (exactly 10 digits).'
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          // Email
-                          TextFormField(
-                            controller: _email,
-                            decoration: _customInputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: Icons.email_outlined),
-                            keyboardType: TextInputType.emailAddress,
-                            validator: (v) =>
-                                (v == null || !_emailRegex.hasMatch(v.trim()))
-                                    ? 'Please enter a valid email address.'
-                                    : null,
-                          ),
-                          const SizedBox(height: 16),
-                          // NEW: Address Field
-                          TextFormField(
-                            controller: _address,
-                            maxLines: 2,
-                            decoration: _customInputDecoration(
-                                labelText: 'Residential Address',
-                                prefixIcon: Icons.location_on_outlined),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Please enter your residential address.'
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          // Password Field
-                          TextFormField(
-                            controller: _password,
-                            onChanged: (value) => setState(() {}),
-                            decoration: _customInputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: Icons.lock_outline,
-                              suffixIcon: IconButton(
-                                onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword),
-                                icon: Icon(_obscurePassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility),
-                              ),
-                            ),
-                            obscureText: _obscurePassword,
-                            validator: (v) => (v == null ||
-                                    !_passwordRegex.hasMatch(v))
-                                ? 'Password must meet all requirements below'
-                                : null,
-                          ),
-                          // Password requirements display...
-                          if (passwordText.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            _buildPasswordRequirement(
-                                'At least 8 characters', hasMinLength),
-                            _buildPasswordRequirement(
-                                'One uppercase letter', hasUppercase),
-                            _buildPasswordRequirement(
-                                'One lowercase letter', hasLowercase),
-                            _buildPasswordRequirement('One number', hasNumber),
-                            _buildPasswordRequirement(
-                                'One special character (!@#\$%...)',
-                                hasSpecialChar),
-                          ],
-                          const SizedBox(height: 24),
-                          if (_msg != null)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade900.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                    color: Colors.red.shade400, width: 1),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+            // Content
+            Center(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Card(
+                    elevation: 20,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                    color: theme.cardColor.withValues(alpha: 0.95),
+                    child: Padding(
+                      padding: const EdgeInsets.all(30),
+                      child: Form(
+                        key: _form,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Center(
+                              child: Column(
                                 children: [
-                                  Icon(Icons.error_outline,
-                                      color: Colors.red.shade400, size: 20),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      _msg!,
-                                      style: TextStyle(
-                                        color: Colors.red.shade400,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
+                                  Image.asset('assets/images/ecocycle.png',
+                                      height: 80),
+                                  const SizedBox(height: 16),
+                                  Text('Create Account',
+                                      style: theme.textTheme.headlineMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color:
+                                                  theme.colorScheme.primary)),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                      'Sign up to join our recycling community',
+                                      style: theme.textTheme.bodyMedium),
+                                  const SizedBox(height: 24),
                                 ],
                               ),
                             ),
-                          const SizedBox(height: 16),
-                          FilledButton(
-                            onPressed: _busy ? null : _signup,
-                            style: FilledButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16)),
-                            child: _busy
-                                ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                : const Text('Sign up',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 16),
-                          OutlinedButton(
-                            onPressed:
-                                _busy ? null : () => Navigator.pop(context),
-                            child: const Text('Already have an account?'),
-                          ),
-                        ],
+                            // First name
+                            TextFormField(
+                              controller: _firstName,
+                              decoration: _customInputDecoration(
+                                  labelText: 'First Name',
+                                  prefixIcon: Icons.person_outline),
+                              validator: (v) {
+                                if (v == null || v.trim().length < 2) {
+                                  return 'Please enter at least 2 characters.';
+                                }
+                                if (!_nameRegex.hasMatch(v.trim())) {
+                                  return 'Please start with a capital letter.';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Last name
+                            TextFormField(
+                              controller: _lastName,
+                              decoration: _customInputDecoration(
+                                  labelText: 'Last Name',
+                                  prefixIcon: Icons.person_outline),
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Please enter your last name.';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Mobile number
+                            TextFormField(
+                              controller: _phone,
+                              decoration: _customInputDecoration(
+                                  labelText: 'Mobile number',
+                                  prefixIcon: Icons.phone_outlined),
+                              keyboardType: TextInputType.phone,
+                              validator: (v) => (v == null ||
+                                      !_phoneRegex.hasMatch(v.trim()))
+                                  ? 'Please enter a valid phone number (exactly 10 digits).'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            // Email
+                            TextFormField(
+                              controller: _email,
+                              decoration: _customInputDecoration(
+                                  labelText: 'Email',
+                                  prefixIcon: Icons.email_outlined),
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) =>
+                                  (v == null || !_emailRegex.hasMatch(v.trim()))
+                                      ? 'Please enter a valid email address.'
+                                      : null,
+                            ),
+                            const SizedBox(height: 16),
+                            // House Name/Number
+                            TextFormField(
+                              controller: _houseName,
+                              decoration: _customInputDecoration(
+                                  labelText: 'House Name/Number',
+                                  prefixIcon: Icons.home_outlined),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            // Pin Code
+                            TextFormField(
+                              controller: _pinCode,
+                              keyboardType: TextInputType.number,
+                              decoration: _customInputDecoration(
+                                  labelText: 'Pin Code',
+                                  prefixIcon: Icons.pin_drop_outlined),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            // Password Field
+                            TextFormField(
+                              controller: _password,
+                              onChanged: (value) => setState(() {}),
+                              decoration: _customInputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: Icons.lock_outline,
+                                suffixIcon: IconButton(
+                                  onPressed: () => setState(() =>
+                                      _obscurePassword = !_obscurePassword),
+                                  icon: Icon(_obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility),
+                                ),
+                              ),
+                              obscureText: _obscurePassword,
+                              validator: (v) => (v == null ||
+                                      !_passwordRegex.hasMatch(v))
+                                  ? 'Password must meet all requirements below'
+                                  : null,
+                            ),
+                            // Password requirements display...
+                            if (passwordText.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              _buildPasswordRequirement(
+                                  'At least 8 characters', hasMinLength),
+                              _buildPasswordRequirement(
+                                  'One uppercase letter', hasUppercase),
+                              _buildPasswordRequirement(
+                                  'One lowercase letter', hasLowercase),
+                              _buildPasswordRequirement(
+                                  'One number', hasNumber),
+                              _buildPasswordRequirement(
+                                  'One special character (!@#\$%...)',
+                                  hasSpecialChar),
+                            ],
+                            const SizedBox(height: 24),
+                            if (_msg != null)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade900
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: Colors.red.shade400, width: 1),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(Icons.error_outline,
+                                        color: Colors.red.shade400, size: 20),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _msg!,
+                                        style: TextStyle(
+                                          color: Colors.red.shade400,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+                            FilledButton(
+                              onPressed: _busy ? null : _signup,
+                              style: FilledButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16)),
+                              child: _busy
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white)
+                                  : const Text('Sign up',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(height: 16),
+                            OutlinedButton(
+                              onPressed:
+                                  _busy ? null : () => Navigator.pop(context),
+                              child: const Text('Already have an account?'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -5,7 +5,7 @@ class GeminiConfig {
   // 3. Copy and paste it below (replace the placeholder)
   // 4. DO NOT commit this file with your real API key - add it to .gitignore
   static const String apiKey =
-      'AIzaSyCF5fKRBdoYat5Bkr1nrorkd4ZfodVqBqE'; // DISABLED KEY - Replace with your own!
+      'AIzaSyCZJ6SnArRAPqMEngojJBbzJrE2ljFYA2s'; // DISABLED KEY - Replace with your own!
 
   // Optional: Add other Gemini-related configurations here
   // static const String model = 'gemini-2.5-flash-preview-09-2025';

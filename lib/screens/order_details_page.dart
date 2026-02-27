@@ -99,7 +99,8 @@ class OrderDetailsPage extends StatelessWidget {
                         ),
                         if (assignment.scheduledDate != null)
                           Text(
-                            DateFormat('EEEE, MMMM d, yyyy').format(assignment.scheduledDate!),
+                            DateFormat('EEEE, MMMM d, yyyy')
+                                .format(assignment.scheduledDate!),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.9),
                               fontSize: 14,
@@ -217,7 +218,8 @@ class OrderDetailsPage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (user['phone_number'] != null && user['phone_number'].isNotEmpty)
+                      if (user['phone_number'] != null &&
+                          user['phone_number'].isNotEmpty)
                         Container(
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
@@ -226,14 +228,16 @@ class OrderDetailsPage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                color: const Color(0xFF10B981)
+                                    .withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
                           child: IconButton(
-                            onPressed: () => _makePhoneCall(user['phone_number']),
+                            onPressed: () =>
+                                _makePhoneCall(user['phone_number']),
                             icon: const Icon(Icons.phone, color: Colors.white),
                             tooltip: 'Call Customer',
                           ),
@@ -246,7 +250,8 @@ class OrderDetailsPage extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.location_on, size: 20, color: Colors.grey),
+                      const Icon(Icons.location_on,
+                          size: 20, color: Colors.grey),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -341,7 +346,8 @@ class OrderDetailsPage extends StatelessWidget {
                   // Item Name
                   Row(
                     children: [
-                      const Icon(Icons.shopping_bag, size: 20, color: Colors.grey),
+                      const Icon(Icons.shopping_bag,
+                          size: 20, color: Colors.grey),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -374,7 +380,8 @@ class OrderDetailsPage extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.description, size: 20, color: Colors.grey),
+                      const Icon(Icons.description,
+                          size: 20, color: Colors.grey),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -420,13 +427,15 @@ class OrderDetailsPage extends StatelessWidget {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.orange.shade100,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                item['category_id']?.toString().toUpperCase() ?? 'GENERAL',
+                                item['category_id']?.toString().toUpperCase() ??
+                                    'GENERAL',
                                 style: TextStyle(
                                   color: Colors.orange.shade800,
                                   fontSize: 12,
@@ -444,7 +453,8 @@ class OrderDetailsPage extends StatelessWidget {
             ),
 
             // Action Buttons
-            if (assignment.status == 'pending' || assignment.status == 'accepted')
+            if (assignment.status == 'pending' ||
+                assignment.status == 'accepted')
               Container(
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(20),
@@ -475,34 +485,44 @@ class OrderDetailsPage extends StatelessWidget {
                     Row(
                       children: [
                         // Call User Button
-                        if (user['phone_number'] != null && user['phone_number'].isNotEmpty)
+                        if (user['phone_number'] != null &&
+                            user['phone_number'].isNotEmpty)
                           Expanded(
                             child: Container(
                               margin: const EdgeInsets.only(right: 8),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF10B981), Color(0xFF059669)],
+                                  colors: [
+                                    Color(0xFF10B981),
+                                    Color(0xFF059669)
+                                  ],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                    color: const Color(0xFF10B981)
+                                        .withValues(alpha: 0.3),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               child: ElevatedButton.icon(
-                                onPressed: () => _makePhoneCall(user['phone_number']),
-                                icon: const Icon(Icons.phone, color: Colors.white),
+                                onPressed: () =>
+                                    _makePhoneCall(user['phone_number']),
+                                icon: const Icon(Icons.phone,
+                                    color: Colors.white),
                                 label: const Text(
                                   'Call User',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -522,23 +542,29 @@ class OrderDetailsPage extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                                  color: const Color(0xFF3B82F6)
+                                      .withValues(alpha: 0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
                             child: ElevatedButton.icon(
-                              onPressed: () => _showLiveLocation(item['location'] ?? ''),
-                              icon: const Icon(Icons.location_on, color: Colors.white),
+                              onPressed: () =>
+                                  _showLiveLocation(item['location'] ?? ''),
+                              icon: const Icon(Icons.location_on,
+                                  color: Colors.white),
                               label: const Text(
                                 'Live Location',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -558,23 +584,28 @@ class OrderDetailsPage extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFEA4335).withValues(alpha: 0.3),
+                                  color: const Color(0xFFEA4335)
+                                      .withValues(alpha: 0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
                             child: ElevatedButton.icon(
-                              onPressed: () => _openInGoogleMaps(item['location'] ?? ''),
+                              onPressed: () =>
+                                  _openInGoogleMaps(item['location'] ?? ''),
                               icon: const Icon(Icons.map, color: Colors.white),
                               label: const Text(
                                 'Google Maps',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -598,7 +629,8 @@ class OrderDetailsPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                              color: const Color(0xFFF59E0B)
+                                  .withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -606,7 +638,8 @@ class OrderDetailsPage extends StatelessWidget {
                         ),
                         child: ElevatedButton.icon(
                           onPressed: () => _markAsCollected(context),
-                          icon: const Icon(Icons.check_circle, color: Colors.white),
+                          icon: const Icon(Icons.check_circle,
+                              color: Colors.white),
                           label: const Text(
                             'Mark as Collected',
                             style: TextStyle(
@@ -667,7 +700,10 @@ class OrderDetailsPage extends StatelessWidget {
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
-    final url = 'tel:$phoneNumber';
+    final cleanPhone = phoneNumber.startsWith('+')
+        ? '+${phoneNumber.replaceAll(RegExp(r'\D'), '')}'
+        : phoneNumber.replaceAll(RegExp(r'\D'), '');
+    final url = 'tel:$cleanPhone';
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url));
     } else {
@@ -677,7 +713,8 @@ class OrderDetailsPage extends StatelessWidget {
 
   Future<void> _openInGoogleMaps(String location) async {
     final encodedLocation = Uri.encodeComponent(location);
-    final url = 'https://www.google.com/maps/search/?api=1&query=$encodedLocation';
+    final url =
+        'https://www.google.com/maps/search/?api=1&query=$encodedLocation';
 
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);

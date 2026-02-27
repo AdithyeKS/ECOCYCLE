@@ -1,18 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:EcoCycle/screens/add_ewaste_screen.dart';
-import 'package:EcoCycle/screens/add_cloth_screen.dart';
-import 'package:EcoCycle/screens/add_plastic_screen.dart'; // NEW: Plastic screen import
-import 'package:EcoCycle/screens/profile_screen.dart';
-import 'package:EcoCycle/screens/rewards_screen.dart';
-import 'package:EcoCycle/screens/settings_screen.dart';
-import 'package:EcoCycle/screens/mission_screen.dart';
-import 'package:EcoCycle/screens/volunteer_application_screen.dart';
-import 'package:EcoCycle/screens/unified_pickup_request_screen.dart';
+import 'package:ecocycle/screens/add_ewaste_screen.dart';
+import 'package:ecocycle/screens/add_cloth_screen.dart';
+import 'package:ecocycle/screens/add_plastic_screen.dart'; // NEW: Plastic screen import
+import 'package:ecocycle/screens/profile_screen.dart';
+import 'package:ecocycle/screens/rewards_screen.dart';
+import 'package:ecocycle/screens/settings_screen.dart';
+import 'package:ecocycle/screens/mission_screen.dart';
+import 'package:ecocycle/screens/volunteer_application_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:EcoCycle/services/profile_service.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:ecocycle/services/profile_service.dart';
+import 'package:ecocycle/services/notification_service.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/screens/notifications_screen.dart';
 
 enum MenuOption { volunteer, youtube, profile, settings }
 
@@ -29,11 +30,14 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime? _volunteerRequestedAt;
   bool _isDataLoading = true;
   final _profileService = ProfileService();
+  final _notificationService = NotificationService();
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadProfileStatus();
+    _loadUnreadNotificationCount();
   }
 
   /// Fetches the current user's role and volunteer request status
@@ -58,13 +62,43 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading profile status: $e');
+      // print(...);
       if (mounted) setState(() => _isDataLoading = false);
     }
   }
 
   void _open(BuildContext context, Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final userId = AppSupabase.client.auth.currentUser?.id;
+      if (userId != null) {
+        // Fetch user role
+        final profile = await _profileService.fetchProfile(userId);
+        final userRole = profile?['user_role'] as String? ?? 'user';
+
+        final count = await _notificationService.getUnreadCount(userId,
+            userRole: userRole);
+        if (mounted) {
+          setState(() {
+            _unreadNotificationCount = count;
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail, notification count is not critical
+    }
+  }
+
+  void _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+    );
+    // Refresh count after returning from notifications screen
+    _loadUnreadNotificationCount();
   }
 
   /// Professional dashboard action card helper
@@ -84,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-                color: Theme.of(context).shadowColor.withOpacity(0.06),
+                color: Theme.of(context).shadowColor.withValues(alpha: 0.06),
                 blurRadius: 8,
                 offset: const Offset(0, 4)),
           ],
@@ -92,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           children: [
             CircleAvatar(
-                backgroundColor: color.withOpacity(0.12),
+                backgroundColor: color.withValues(alpha: 0.12),
                 child: Icon(icon, color: color)),
             const SizedBox(width: 16),
             Expanded(
@@ -117,22 +151,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Eco-friendly slideshow card with automatic transitions
   Widget _ecoSlideshowCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      height: 120,
+      height: 140,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
-          colors: [
-            Colors.green.shade50,
-            Colors.blue.shade50,
-            Colors.purple.shade50,
-          ],
+          colors: isDark
+              ? [
+                  Colors.green.shade900.withValues(alpha: 0.5),
+                  Colors.blue.shade900.withValues(alpha: 0.5),
+                  Colors.purple.shade900.withValues(alpha: 0.5),
+                ]
+              : [
+                  Colors.green.shade50,
+                  Colors.blue.shade50,
+                  Colors.purple.shade50,
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -159,12 +201,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 _open(context, const VolunteerApplicationScreen());
                 break;
               case MenuOption.youtube:
-                const url =
-                    'https://www.youtube.com/watch?v=MQLadfsvfLo'; // Placeholder link
-                final uri = Uri.parse(url);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri);
-                } else {
+                // Open YouTube video in external browser/app
+                const youtubeUrl =
+                    'https://www.youtube.com/watch?v=MQLadfsvfLo';
+                final uri = Uri.parse(youtubeUrl);
+                try {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } catch (e) {
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(tr('could_not_launch_youtube'))),
                   );
@@ -179,16 +223,17 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           },
           itemBuilder: (BuildContext context) => <PopupMenuEntry<MenuOption>>[
-            PopupMenuItem<MenuOption>(
-              value: MenuOption.volunteer,
-              child: Row(
-                children: [
-                  Icon(Icons.volunteer_activism, color: Colors.yellow[800]),
-                  SizedBox(width: 8),
-                  Text('Become a Volunteer'),
-                ],
+            if (canRequestVolunteer)
+              PopupMenuItem<MenuOption>(
+                value: MenuOption.volunteer,
+                child: Row(
+                  children: [
+                    Icon(Icons.volunteer_activism, color: Colors.yellow[800]),
+                    const SizedBox(width: 8),
+                    Text(tr('become_volunteer')),
+                  ],
+                ),
               ),
-            ),
             PopupMenuItem<MenuOption>(
               value: MenuOption.youtube,
               child: Row(
@@ -226,27 +271,27 @@ class _HomeScreenState extends State<HomeScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
-            ),
-          ),
-        ),
+        flexibleSpace: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+                  ),
+                ),
+              ),
         actions: [
           if (canRequestVolunteer)
-            Tooltip(
-              message: 'Become a Volunteer',
-              child: IconButton(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: AnimatedVolunteerIcon(
                 onPressed: () =>
                     _open(context, const VolunteerApplicationScreen()),
-                icon:
-                    const Icon(Icons.volunteer_activism, color: Colors.yellow),
               ),
             )
           else if (requestPending)
             Tooltip(
-              message: 'Application Pending Review',
+              message: tr('application_pending_review'),
               child: IconButton(
                 onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(tr('application_pending_review'))),
@@ -254,6 +299,42 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.hourglass_empty, color: Colors.orange),
               ),
             ),
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: _openNotifications,
+                tooltip: tr('notifications'),
+              ),
+              if (_unreadNotificationCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      _unreadNotificationCount > 9
+                          ? '9+'
+                          : _unreadNotificationCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             onPressed: widget.toggleTheme,
             icon: const Icon(Icons.brightness_6_outlined),
@@ -298,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
               context,
               icon: Icons.electric_bolt,
               title: tr('ewaste'),
-              subtitle: "Add new e-waste item",
+              subtitle: tr('add_ewaste_sub'),
               color: Colors.deepOrange,
               onTap: () => _open(context, const AddEwasteScreen()),
             ),
@@ -309,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
               context,
               icon: Icons.shopping_bag_outlined,
               title: tr('cloth'),
-              subtitle: "Add new cloth item",
+              subtitle: tr('add_cloth_sub'),
               color: Colors.indigo,
               onTap: () => _open(context, const AddClothScreen()),
             ),
@@ -411,18 +492,18 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
 
     _slides = [
       {
-        'title': '🌱 Go Green Today!',
-        'subtitle': 'Start your recycling journey and earn rewards',
+        'title': tr('slideshow_title_1'),
+        'subtitle': tr('slideshow_sub_1'),
         'icon': Icons.eco,
         'color': Colors.green,
-        'action': 'Mission',
+        'action': tr('slideshow_action_1'),
       },
       {
-        'title': '♻️ E-Waste Matters',
-        'subtitle': 'Properly recycle electronics for a better tomorrow',
+        'title': tr('slideshow_title_2'),
+        'subtitle': tr('slideshow_sub_2'),
         'icon': Icons.electric_bolt,
         'color': Colors.orange,
-        'action': 'Recycle Now',
+        'action': tr('slideshow_action_2'),
       },
       {
         'title': dailyMotivation['title'],
@@ -432,18 +513,18 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
         'action': dailyMotivation['action'],
       },
       {
-        'title': '💧 Save Our Planet',
-        'subtitle': 'Every small action contributes to big change',
+        'title': tr('slideshow_title_4'),
+        'subtitle': tr('slideshow_sub_4'),
         'icon': Icons.water_drop,
         'color': Colors.blue,
-        'action': 'Join Us',
+        'action': tr('slideshow_action_4'),
       },
       {
-        'title': '🎯 Track Your Impact',
-        'subtitle': 'Monitor your eco-contribution and earn points',
+        'title': tr('slideshow_title_5'),
+        'subtitle': tr('slideshow_sub_5'),
         'icon': Icons.track_changes,
         'color': Colors.teal,
-        'action': 'View Progress',
+        'action': tr('slideshow_action_5'),
       },
     ];
   }
@@ -494,7 +575,7 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: slide['color'].withOpacity(0.2),
+                      color: slide['color'].withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -515,7 +596,7 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: slide['color'].withOpacity(0.9),
+                            color: slide['color'].withValues(alpha: 0.9),
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -537,7 +618,8 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 0),
-                              backgroundColor: slide['color'].withOpacity(0.1),
+                              backgroundColor:
+                                  slide['color'].withValues(alpha: 0.1),
                               minimumSize: const Size(0, 28),
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               shape: RoundedRectangleBorder(
@@ -574,8 +656,10 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                      content: Text(
-                                          'Action: \'${slide['action']}\' not implemented.')),
+                                      content: Text(tr('action_not_implemented',
+                                          namedArgs: {
+                                        'action': slide['action']
+                                      }))),
                                 );
                               }
                             },
@@ -613,8 +697,8 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
                 width: _currentPage == index ? 24 : 8,
                 decoration: BoxDecoration(
                   color: _currentPage == index
-                      ? Colors.white.withOpacity(0.8)
-                      : Colors.white.withOpacity(0.4),
+                      ? Colors.white.withValues(alpha: 0.8)
+                      : Colors.white.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -622,6 +706,88 @@ class _EcoSlideshowContentState extends State<EcoSlideshowContent> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Volunteer Icon with Heartbeat Pulse + Soft Glow
+class AnimatedVolunteerIcon extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const AnimatedVolunteerIcon({super.key, required this.onPressed});
+
+  @override
+  State<AnimatedVolunteerIcon> createState() => _AnimatedVolunteerIconState();
+}
+
+class _AnimatedVolunteerIconState extends State<AnimatedVolunteerIcon>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Heartbeat animation controller - smooth 2.5 second cycle
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 2500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    // Gentle pulse scale (1.0 → 1.06)
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.06).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // Soft glow opacity (0.7 → 1.0)
+    _glowAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: AnimatedBuilder(
+        animation: _glowAnimation,
+        builder: (context, child) {
+          return IconButton(
+            onPressed: widget.onPressed,
+            icon: Icon(
+              Icons.volunteer_activism,
+              color: Color(0xFFFFF9C4).withValues(alpha: _glowAnimation.value),
+              shadows: [
+                Shadow(
+                  color: Color(0xFFFFF59D)
+                      .withValues(alpha: _glowAnimation.value * 0.6),
+                  blurRadius: 8,
+                ),
+                Shadow(
+                  color: Color(0xFFFFF9C4)
+                      .withValues(alpha: _glowAnimation.value * 0.4),
+                  blurRadius: 16,
+                ),
+              ],
+            ),
+            tooltip: tr('become_volunteer'),
+          );
+        },
+      ),
     );
   }
 }

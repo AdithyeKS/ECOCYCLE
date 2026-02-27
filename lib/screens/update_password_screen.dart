@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
-import 'package:EcoCycle/screens/login_screen.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import for UserAttributes
 
 class UpdatePasswordScreen extends StatefulWidget {
@@ -60,7 +60,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
         );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(tr('password_update_success')),
+            content: Text(tr('Your password has been successfully updated.')),
             backgroundColor: Colors.green.shade400,
           ),
         );
@@ -136,7 +136,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
       suffixIcon: suffixIcon,
       fillColor: Theme.of(context)
           .cardColor
-          .withOpacity(0.8), // Slightly transparent background
+          .withValues(alpha: 0.8), // Slightly transparent background
       filled: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -144,8 +144,8 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide:
-            BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+        borderSide: BorderSide(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -196,10 +196,11 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
               width: 250,
               height: 250,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15),
+                color: Colors.blue.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
+                  BoxShadow(
+                      color: Colors.blue.withValues(alpha: 0.2), blurRadius: 40)
                 ],
               ),
             ),
@@ -211,11 +212,11 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
               width: 180,
               height: 180,
               decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1),
+                color: Colors.yellow.shade700.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(50),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.yellow.shade700.withOpacity(0.2),
+                      color: Colors.yellow.shade700.withValues(alpha: 0.2),
                       blurRadius: 30)
                 ],
               ),
@@ -228,7 +229,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.lightGreenAccent.withOpacity(0.1),
+                color: Colors.lightGreenAccent.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
             ),
@@ -244,7 +245,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                   elevation: 20,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
-                  color: theme.cardColor.withOpacity(0.95),
+                  color: theme.cardColor.withValues(alpha: 0.95),
                   child: Padding(
                     padding: const EdgeInsets.all(30),
                     child: Form(
@@ -371,7 +372,8 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.red.shade900.withOpacity(0.15),
+                                  color: Colors.red.shade900
+                                      .withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                       color: Colors.red.shade400, width: 1),
@@ -417,7 +419,7 @@ class _UpdatePasswordScreenState extends State<UpdatePasswordScreen> {
                                     ),
                                   )
                                 : Text(
-                                    tr('update_password'),
+                                    tr('Confirm New Password'),
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,

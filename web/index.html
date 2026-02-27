@@ -1,7 +1,5 @@
-<!doctype html>
-<html>
-  <head>
-    <!--
+<!DOCTYPE html><html><head>
+  <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
 
@@ -14,212 +12,300 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-    <base href="$FLUTTER_BASE_HREF" />
+  <base href="$FLUTTER_BASE_HREF">
 
-    <meta charset="UTF-8" />
-    <meta content="IE=Edge" http-equiv="X-UA-Compatible" />
-    <meta name="description" content="A new Flutter project." />
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
 
-    <!-- iOS meta tags & icons -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    <meta name="apple-mobile-web-app-title" content="ecocycle_1" />
-    <link rel="apple-touch-icon" href="icons/Icon-192.png" />
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="ecocycle_1">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="favicon.png" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
 
-    <title>ecocycle_1</title>
-    <link rel="manifest" href="manifest.json" />
+  <title>ecocycle_1</title>
+  <link rel="manifest" href="manifest.json">
 
-    <meta
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-      name="viewport"
-    />
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        background: #4caf50; /* Eco-friendly green background */
-        font-family: Arial, sans-serif;
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #4caf50;
+      /* Eco-friendly green background */
+      font-family: Arial, sans-serif;
+    }
+
+    #splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #000000, #006400);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      color: white;
+    }
+
+    #splash img {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 20px;
+      border-radius: 20px;
+      box-shadow: 0 4px 8px rgba(255, 255, 255, 0.2);
+      background: white;
+      padding: 10px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
       }
-      #splash {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #000000, #006400);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-        color: white;
+
+      50% {
+        transform: scale(1.1);
       }
-      #splash img {
-        width: 120px;
-        height: 120px;
-        margin-bottom: 20px;
-        border-radius: 20px;
-        box-shadow: 0 4px 8px rgba(255, 255, 255, 0.2);
-        background: white;
-        padding: 10px;
-        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .spinner {
+      border: 6px solid rgba(255, 255, 255, 0.3);
+      border-top: 6px solid white;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1.5s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
       }
-      @keyframes pulse {
-        0%,
-        100% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.1);
-        }
+
+      100% {
+        transform: rotate(360deg);
       }
-      .spinner {
-        border: 6px solid rgba(255, 255, 255, 0.3);
-        border-top: 6px solid white;
-        border-radius: 50%;
-        width: 60px;
-        height: 60px;
-        animation: spin 1.5s linear infinite;
-        margin-bottom: 20px;
-      }
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-      #splash p {
-        font-size: 18px;
-        margin: 0;
-        font-weight: bold;
-      }
-      .tagline {
-        font-size: 14px;
-        margin-top: 10px;
-        font-weight: normal;
-        animation: fadeIn 2s ease-in-out 1s both;
-      }
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      #splash.hidden {
+    }
+
+    #splash p {
+      font-size: 18px;
+      margin: 0;
+      font-weight: bold;
+    }
+
+    .tagline {
+      font-size: 14px;
+      margin-top: 10px;
+      font-weight: normal;
+      animation: fadeIn 2s ease-in-out 1s both;
+    }
+
+    @keyframes fadeIn {
+      from {
         opacity: 0;
-        transition: opacity 0.5s ease-out;
+        transform: translateY(10px);
       }
-      @media (max-width: 600px) {
-        #splash img {
-          width: 80px;
-          height: 80px;
-          padding: 6px;
-        }
-        .spinner {
-          width: 36px;
-          height: 36px;
-          border-width: 4px;
-        }
-        #splash p {
-          font-size: 15px;
-        }
-        .tagline {
-          font-size: 12px;
-        }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
-      .drop {
-        position: absolute;
-        width: 8px;
-        height: 18px;
-        border-radius: 50% 50% 60% 60%/60% 60% 100% 100%;
-        background: rgba(255, 255, 255, 0.18);
-        box-shadow: 0 2px 8px 0 rgba(31, 38, 135, 0.18);
-        pointer-events: none;
-        animation: drop-fall 2.5s linear infinite;
+    }
+
+    #splash.hidden {
+      opacity: 0;
+      transition: opacity 0.5s ease-out;
+    }
+
+    @media (max-width: 600px) {
+      #splash img {
+        width: 80px;
+        height: 80px;
+        padding: 6px;
       }
-      @keyframes drop-fall {
-        0% {
-          opacity: 0;
-          transform: translateY(-40px) scale(0.7);
-        }
-        10% {
-          opacity: 1;
-        }
-        90% {
-          opacity: 1;
-        }
-        100% {
-          opacity: 0;
-          transform: translateY(120vh) scale(1);
-        }
+
+      .spinner {
+        width: 36px;
+        height: 36px;
+        border-width: 4px;
       }
-    </style>
-  </head>
-  <body>
-    <div id="splash">
-      <img src="ecocycle.png" alt="EcoCycle Logo" />
-      <div class="spinner"></div>
-      <p>Loading EcoCycle...</p>
-      <p class="tagline">Building a Greener Future</p>
-      <div
-        id="eco-tip"
-        style="margin-top: 18px; font-size: 13px; opacity: 0.85"
-      ></div>
-    </div>
-    <script src="flutter_bootstrap.js" async=""></script>
-    <script>
-      // Hide splash screen when Flutter app is ready
-      window.addEventListener("flutter-first-frame", function () {
-        document.getElementById("splash").classList.add("hidden");
-        setTimeout(function () {
-          document.getElementById("splash").style.display = "none";
-        }, 500);
-      });
-      const ecoTips = [
-        "Turn off lights when not in use.",
-        "Recycle paper, plastic, and glass.",
-        "Use reusable bags instead of plastic.",
-        "Save water by fixing leaks promptly.",
-        "Plant a tree to help the environment.",
-        "Choose public transport or carpool.",
-        "Compost food scraps to reduce waste.",
-        "Support local and eco-friendly products.",
-        "Reduce, Reuse, Recycle!",
-        "Bring your own bottle to avoid single-use plastic.",
-      ];
-      const tipDiv = document.getElementById("eco-tip");
-      let lastTip = -1;
-      function showRandomTip() {
-        let idx;
-        do {
-          idx = Math.floor(Math.random() * ecoTips.length);
-        } while (idx === lastTip);
-        lastTip = idx;
-        tipDiv.textContent = ecoTips[idx];
+
+      #splash p {
+        font-size: 15px;
       }
-      showRandomTip();
-      setInterval(showRandomTip, 3500);
-      function createDrop() {
-        const drop = document.createElement("div");
-        drop.className = "drop";
-        drop.style.left = Math.random() * 100 + "vw";
-        drop.style.animationDuration = 2 + Math.random() * 1.5 + "s";
-        drop.style.opacity = 0.15 + Math.random() * 0.25;
-        document.getElementById("splash").appendChild(drop);
-        setTimeout(() => drop.remove(), 3000);
+
+      .tagline {
+        font-size: 12px;
       }
-      setInterval(createDrop, 350);
-      for (let i = 0; i < 10; i++) setTimeout(createDrop, i * 200);
-    </script>
-  </body>
-</html>
+    }
+
+    .drop {
+      position: absolute;
+      width: 8px;
+      height: 18px;
+      border-radius: 50% 50% 60% 60%/60% 60% 100% 100%;
+      background: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 2px 8px 0 rgba(31, 38, 135, 0.18);
+      pointer-events: none;
+      animation: drop-fall 2.5s linear infinite;
+    }
+
+    @keyframes drop-fall {
+      0% {
+        opacity: 0;
+        transform: translateY(-40px) scale(0.7);
+      }
+
+      10% {
+        opacity: 1;
+      }
+
+      90% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(120vh) scale(1);
+      }
+    }
+  </style>
+  
+  
+  <style id="splash-screen-style">
+    html {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      background-color: #1B5E20;
+          background-size: 100% 100%;
+    }
+
+    .center {
+      margin: 0;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      -ms-transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%);
+    }
+
+    .contain {
+      display:block;
+      width:100%; height:100%;
+      object-fit: contain;
+    }
+
+    .stretch {
+      display:block;
+      width:100%; height:100%;
+    }
+
+    .cover {
+      display:block;
+      width:100%; height:100%;
+      object-fit: cover;
+    }
+
+    .bottom {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      -ms-transform: translate(-50%, 0);
+      transform: translate(-50%, 0);
+    }
+
+    .bottomLeft {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+    }
+
+    .bottomRight {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+    }
+  </style>
+  <script id="splash-screen-script">
+    function removeSplashFromWeb() {
+      document.getElementById("splash")?.remove();
+      document.getElementById("splash-branding")?.remove();
+      document.body.style.background = "transparent";
+    }
+  </script>
+</head>
+
+<body>
+  <picture id="splash">
+      <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
+      <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
+      <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
+  </picture>
+  
+
+  <script src="flutter_bootstrap.js" async=""></script>
+  <script>
+    // Hide splash screen when Flutter app is ready
+    window.addEventListener("flutter-first-frame", function () {
+      document.getElementById("splash").classList.add("hidden");
+      setTimeout(function () {
+        document.getElementById("splash").style.display = "none";
+      }, 500);
+    });
+    const ecoTips = [
+      "Turn off lights when not in use.",
+      "Recycle paper, plastic, and glass.",
+      "Use reusable bags instead of plastic.",
+      "Save water by fixing leaks promptly.",
+      "Plant a tree to help the environment.",
+      "Choose public transport or carpool.",
+      "Compost food scraps to reduce waste.",
+      "Support local and eco-friendly products.",
+      "Reduce, Reuse, Recycle!",
+      "Bring your own bottle to avoid single-use plastic.",
+    ];
+    const tipDiv = document.getElementById("eco-tip");
+    let lastTip = -1;
+    function showRandomTip() {
+      let idx;
+      do {
+        idx = Math.floor(Math.random() * ecoTips.length);
+      } while (idx === lastTip);
+      lastTip = idx;
+      tipDiv.textContent = ecoTips[idx];
+    }
+    showRandomTip();
+    setInterval(showRandomTip, 3500);
+    function createDrop() {
+      const drop = document.createElement("div");
+      drop.className = "drop";
+      drop.style.left = Math.random() * 100 + "vw";
+      drop.style.animationDuration = 2 + Math.random() * 1.5 + "s";
+      drop.style.opacity = 0.15 + Math.random() * 0.25;
+      document.getElementById("splash").appendChild(drop);
+      setTimeout(() => drop.remove(), 3000);
+    }
+    setInterval(createDrop, 350);
+    for (let i = 0; i < 10; i++) setTimeout(createDrop, i * 200);
+  </script>
+
+
+
+
+</body></html>

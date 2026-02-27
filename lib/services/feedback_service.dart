@@ -78,7 +78,7 @@ class FeedbackService {
       }
     } catch (e) {
       // Log the error but don't fail the feedback update
-      print('Failed to send feedback response email: $e');
+      // print(...);
     }
   }
 

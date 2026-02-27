@@ -15,7 +15,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
   int _totalPoints = 0;
   bool _isLoading = true;
   final _profileService = ProfileService();
-  
+
   // Activity tracking variables are no longer needed since we removed the badge logic
   // int _collectedEwasteCount = 0;
   // int _collectedClothCount = 0;
@@ -23,7 +23,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData(); 
+    _loadData();
   }
 
   // MODIFIED: Simplified data loading to only fetch points
@@ -45,9 +45,11 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
       int parsedPoints = 0;
       if (res != null) {
-        parsedPoints = (res['total_points'] is int) ? res['total_points'] : int.tryParse(res['total_points'].toString()) ?? 0;
+        parsedPoints = (res['total_points'] is int)
+            ? res['total_points']
+            : int.tryParse(res['total_points'].toString()) ?? 0;
       }
-      
+
       // Removed badge-related data fetching (ewasteData, clothData)
 
       if (mounted) {
@@ -56,7 +58,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading user data for rewards: $e');
+      // print(...);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -71,7 +73,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
     if (_totalPoints < cost) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: You need $cost points to claim $rewardName.')),
+          SnackBar(
+              content:
+                  Text('Error: You need $cost points to claim $rewardName.')),
         );
       }
       return;
@@ -81,11 +85,16 @@ class _RewardsScreenState extends State<RewardsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Claim $rewardName'),
-        content: Text('Are you sure you want to spend $cost EcoPoints to claim this reward?'),
+        title: Text(tr('confirm_claim', namedArgs: {'rewardName': rewardName})),
+        content: Text(
+            tr('spend_points_confirm', namedArgs: {'cost': cost.toString()})),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Claim Reward')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('cancel_claim'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('claim_reward_btn'))),
         ],
       ),
     );
@@ -94,17 +103,16 @@ class _RewardsScreenState extends State<RewardsScreen> {
       setState(() => _isLoading = true);
       try {
         await _profileService.deductEcoPoints(userId, cost);
-        await _loadData(); // Refresh points 
-        
+        await _loadData(); // Refresh points
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               // NEW: Show reward information specific to a valuable reward
-              content: Text(
-                rewardName.contains('Code') || rewardName.contains('Voucher')
-                  ? '✅ Digital reward details will be sent to your registered email! Points deducted.'
-                  : '✅ Successfully claimed $rewardName! Points deducted.'
-              ),
+              content: Text(rewardName.contains('Code') ||
+                      rewardName.contains('Voucher')
+                  ? tr('digital_reward_sent')
+                  : tr('claim_success', namedArgs: {'rewardName': rewardName})),
               backgroundColor: Colors.green,
             ),
           );
@@ -112,8 +120,8 @@ class _RewardsScreenState extends State<RewardsScreen> {
       } catch (e) {
         if (mounted) {
           String errorMessage = e.toString().contains('Insufficient EcoPoints')
-              ? 'Insufficient points. Please earn more first!'
-              : 'Claim failed: ${e.toString()}';
+              ? tr('insufficient_points_msg')
+              : '${tr('claim_failed')}: ${e.toString()}';
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(errorMessage)),
@@ -125,12 +133,10 @@ class _RewardsScreenState extends State<RewardsScreen> {
     }
   }
 
-
   // Removed _badgeCard() function
 
-
-  Widget _rewardItem(BuildContext context, String name, int cost,
-      IconData icon, Color color) {
+  Widget _rewardItem(
+      BuildContext context, String name, int cost, IconData icon, Color color) {
     bool canClaim = _totalPoints >= cost;
 
     return Card(
@@ -139,7 +145,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.2),
+          backgroundColor: color.withValues(alpha: 0.2),
           child: Icon(icon, color: color),
         ),
         title: Text(name,
@@ -151,16 +157,18 @@ class _RewardsScreenState extends State<RewardsScreen> {
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          onPressed: _isLoading || !canClaim
-            ? null 
-            : () => _claimReward(name, cost), 
+          onPressed:
+              _isLoading || !canClaim ? null : () => _claimReward(name, cost),
           // Show how many more points are needed if the user cannot claim
-          child: Text(canClaim ? tr('redeem') : 'Needed: ${cost - _totalPoints}'),
+          child: Text(canClaim
+              ? tr('redeem')
+              : tr('needed_points',
+                  namedArgs: {'needed': (cost - _totalPoints).toString()})),
         ),
       ),
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -175,18 +183,20 @@ class _RewardsScreenState extends State<RewardsScreen> {
           tr('rewards'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient:
-                LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
-          ),
-        ),
+        flexibleSpace: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                      colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
+                ),
+              ),
         elevation: 0,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadData, 
+              onRefresh: _loadData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
@@ -232,21 +242,24 @@ class _RewardsScreenState extends State<RewardsScreen> {
                           ),
                         ],
                       ),
-                    ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.3, end: 0),
+                    )
+                        .animate()
+                        .fadeIn(duration: 600.ms)
+                        .slideY(begin: 0.3, end: 0),
 
                     // Removed Badges Section
 
                     const SizedBox(height: 30),
-                    
+
                     // 🎁 Redeem Rewards
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         tr('redeem_rewards'),
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.textTheme.bodyLarge?.color,
-                        ),
+                              fontWeight: FontWeight.bold,
+                              color: theme.textTheme.bodyLarge?.color,
+                            ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -256,40 +269,40 @@ class _RewardsScreenState extends State<RewardsScreen> {
                         // 1. GOOGLE PLAY CODE (Digital, instant value - highest value digital)
                         _rewardItem(
                           context,
-                          'Google Play Store Code (₹500)', // Higher value code
+                          tr('google_play_reward'), // Higher value code
                           5000,
                           Icons.play_circle_fill,
                           Colors.redAccent,
                         ),
-                        
                         // 2. AMAZON VOUCHER (Digital, instant value)
                         _rewardItem(
                           context,
-                          'Amazon Gift Voucher (₹200)',
+                          tr('amazon_reward'),
                           2500,
                           Icons.redeem,
                           Colors.teal,
                         ),
-                         
                         // 3. LOW-VALUE PHYSICAL ITEM (Basic Merchandise)
-                         _rewardItem(
+                        _rewardItem(
                           context,
-                          'Eco-Friendly Water Bottle',
+                          tr('water_bottle_reward'),
                           1500,
                           Icons.water_drop,
                           Colors.blue,
                         ),
-                         
-                         // 4. LOWEST TIER ITEM
-                         _rewardItem(
+                        // 4. LOWEST TIER ITEM
+                        _rewardItem(
                           context,
-                          'Eco Tote Bag',
+                          tr('tote_bag_reward'),
                           500,
                           Icons.shopping_bag_outlined,
                           Colors.green,
                         ),
                       ],
-                    ).animate().fadeIn(duration: 1000.ms).slideY(begin: 0.3, end: 0),
+                    )
+                        .animate()
+                        .fadeIn(duration: 1000.ms)
+                        .slideY(begin: 0.3, end: 0),
                   ],
                 ),
               ),

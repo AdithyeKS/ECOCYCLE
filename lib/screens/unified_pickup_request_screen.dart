@@ -5,10 +5,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
-import '../services/ewaste_service.dart';
-import '../core/supabase_config.dart';
+
+import 'package:ecocycle/services/ewaste_service.dart';
+import 'package:ecocycle/core/supabase_config.dart';
 
 class UnifiedPickupRequestScreen extends StatefulWidget {
   const UnifiedPickupRequestScreen({super.key});
@@ -32,39 +31,37 @@ class _UnifiedPickupRequestScreenState
   // Form state
   String _selectedWasteCategory = 'ewaste';
   final List<XFile> _selectedImages = [];
-  bool _isLoading = false;
+
   bool _isSubmitting = false;
-  Position? _currentPosition;
 
   // Waste categories
   final List<Map<String, dynamic>> _wasteCategories = [
     {
-      'id': 'ewaste',
-      'name': 'E-Waste',
+      'name': tr('ewaste_name'),
       'icon': Icons.electric_bolt,
       'color': Colors.deepOrange,
-      'description': 'Electronic devices, batteries, cables, etc.'
+      'description': tr('ewaste_desc_short')
     },
     {
       'id': 'plastic',
-      'name': 'Plastic Waste',
+      'name': tr('plastic_name'),
       'icon': Icons.recycling,
       'color': Colors.blue,
-      'description': 'Plastic bottles, containers, packaging, etc.'
+      'description': tr('plastic_desc_short')
     },
     {
       'id': 'cloth',
-      'name': 'Clothing & Textiles',
+      'name': tr('cloth_name'),
       'icon': Icons.checkroom,
       'color': Colors.purple,
-      'description': 'Old clothes, fabrics, shoes, etc.'
+      'description': tr('cloth_desc_short')
     },
     {
       'id': 'other',
-      'name': 'Other Waste',
+      'name': tr('other_name'),
       'icon': Icons.inventory,
       'color': Colors.grey,
-      'description': 'Other recyclable materials'
+      'description': tr('other_desc_short')
     },
   ];
 
@@ -104,22 +101,19 @@ class _UnifiedPickupRequestScreenState
         return;
       }
 
-      setState(() => _isLoading = true);
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       setState(() {
-        _currentPosition = position;
         _locationController.text =
             '${position.latitude}, ${position.longitude}';
-        _isLoading = false;
       });
 
       // Try to get address from coordinates
       await _getAddressFromCoordinates(position.latitude, position.longitude);
     } catch (e) {
-      setState(() => _isLoading = false);
       _showSnackBar('Error getting location: $e');
     }
   }
@@ -138,7 +132,7 @@ class _UnifiedPickupRequestScreenState
         });
       }
     } catch (e) {
-      debugPrint('Error getting address: $e');
+      // print(...);
     }
   }
 
@@ -206,6 +200,7 @@ class _UnifiedPickupRequestScreenState
     );
 
     if (date != null) {
+      if (!mounted) return;
       // Select time
       final TimeOfDay? time = await showTimePicker(
         context: context,
@@ -247,6 +242,7 @@ class _UnifiedPickupRequestScreenState
       return;
     }
 
+    if (!mounted) return;
     if (_preferredPickupDate == null) {
       _showSnackBar('Please select a preferred pickup date and time');
       return;
@@ -314,7 +310,7 @@ class _UnifiedPickupRequestScreenState
 
       return url;
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+      // print(...);
       return null;
     }
   }
@@ -335,7 +331,7 @@ class _UnifiedPickupRequestScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -344,9 +340,9 @@ class _UnifiedPickupRequestScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'What type of waste do you want to donate?',
-            style: TextStyle(
+          Text(
+            tr('waste_type_question'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -376,7 +372,7 @@ class _UnifiedPickupRequestScreenState
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? category['color'].withOpacity(0.1)
+                        ? category['color'].withValues(alpha: 0.1)
                         : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
@@ -433,7 +429,7 @@ class _UnifiedPickupRequestScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -442,16 +438,16 @@ class _UnifiedPickupRequestScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Add photos of your waste',
-            style: TextStyle(
+          Text(
+            tr('add_photos'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Take clear photos to help our volunteers identify and prepare for pickup',
+            tr('add_photos_sub'),
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
@@ -511,7 +507,7 @@ class _UnifiedPickupRequestScreenState
                 child: OutlinedButton.icon(
                   onPressed: _pickImages,
                   icon: const Icon(Icons.photo_library),
-                  label: const Text('Gallery'),
+                  label: Text(tr('gallery')),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -522,7 +518,7 @@ class _UnifiedPickupRequestScreenState
                 child: OutlinedButton.icon(
                   onPressed: _takePhoto,
                   icon: const Icon(Icons.camera_alt),
-                  label: const Text('Camera'),
+                  label: Text(tr('camera')),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -543,7 +539,7 @@ class _UnifiedPickupRequestScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -563,13 +559,13 @@ class _UnifiedPickupRequestScreenState
           TextFormField(
             controller: _locationController,
             decoration: InputDecoration(
-              labelText: 'Address',
-              hintText: 'Enter your pickup address',
+              labelText: tr('address'),
+              hintText: tr('enter_pickup_address'),
               prefixIcon: const Icon(Icons.location_on),
               suffixIcon: IconButton(
                 icon: const Icon(Icons.my_location),
                 onPressed: _getCurrentLocation,
-                tooltip: 'Use current location',
+                tooltip: tr('use_current_location'),
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -596,7 +592,7 @@ class _UnifiedPickupRequestScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -605,16 +601,16 @@ class _UnifiedPickupRequestScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Preferred Pickup Time',
-            style: TextStyle(
+          Text(
+            tr('pickup_date_time'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Select your preferred date and time for pickup',
+            tr('select_date_time'),
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
@@ -643,7 +639,7 @@ class _UnifiedPickupRequestScreenState
                       _preferredPickupDate != null
                           ? DateFormat('EEEE, MMM d, yyyy \'at\' h:mm a')
                               .format(_preferredPickupDate!)
-                          : 'Select date and time',
+                          : tr('select_date_time_btn'),
                       style: TextStyle(
                         color: _preferredPickupDate != null
                             ? Colors.black
@@ -673,7 +669,7 @@ class _UnifiedPickupRequestScreenState
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -682,16 +678,16 @@ class _UnifiedPickupRequestScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Additional Details (Optional)',
-            style: TextStyle(
+          Text(
+            tr('additional_details'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Provide any additional information about your waste donation',
+            tr('additional_details_sub'),
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14,
@@ -701,8 +697,8 @@ class _UnifiedPickupRequestScreenState
           TextFormField(
             controller: _descriptionController,
             decoration: InputDecoration(
-              labelText: 'Description',
-              hintText: 'Any special instructions or details...',
+              labelText: tr('description'),
+              hintText: tr('special_instructions'),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -718,7 +714,7 @@ class _UnifiedPickupRequestScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Request Waste Pickup'),
+        title: Text(tr('request_waste_pickup')),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -738,7 +734,7 @@ class _UnifiedPickupRequestScreenState
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2E7D32).withOpacity(0.1),
+                  color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -753,9 +749,9 @@ class _UnifiedPickupRequestScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Schedule a Waste Pickup',
-                            style: TextStyle(
+                          Text(
+                            tr('pickup_header_title'),
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF2E7D32),
@@ -763,7 +759,7 @@ class _UnifiedPickupRequestScreenState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Tell us what you want to donate and when you\'re available',
+                            tr('pickup_header_sub'),
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 14,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/ewaste_item.dart';
 import '../models/cloth_item.dart';
 import '../models/plastic_item.dart';
@@ -25,10 +26,22 @@ class _TrackingScreenState extends State<TrackingScreen>
   List<PlasticItem> plasticItems = [];
   bool isLoading = true;
 
+  // Cached data for performance
+  List<Map<String, dynamic>> _allItems = [];
+  List<Map<String, dynamic>> _filteredItems = [];
+
+  // Summary stats
+  int _totalItems = 0;
+  int _pendingItems = 0;
+  int _collectedItems = 0;
+  int _deliveredItems = 0;
+  int _totalPoints = 0;
+
   // Filter and search state
   String selectedCategory = 'All';
-  String selectedStatus = 'All';
+  String selectedStatus = 'All'; // Kept if needed for future
   String searchQuery = '';
+  bool isSearchMode = false;
   late TabController _tabController;
 
   @override
@@ -47,60 +60,43 @@ class _TrackingScreenState extends State<TrackingScreen>
   Future<void> fetchAllItems() async {
     try {
       setState(() => isLoading = true);
-      print('Starting to fetch all items...');
 
-      // Fetch with timeout and error handling
-      final ewasteStartTime = DateTime.now();
-      final ewaste = await _ewasteService.fetchAll().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          print('E-waste fetch timed out');
-          return [];
-        },
-      ).catchError((e) {
-        print('Error fetching e-waste: $e');
-        return <EwasteItem>[];
-      });
-      print(
-          'E-waste fetched: ${ewaste.length} items in ${DateTime.now().difference(ewasteStartTime).inMilliseconds}ms');
+      final ewaste = await _ewasteService
+          .fetchAll()
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => [],
+          )
+          .catchError((e) => <EwasteItem>[]);
 
-      final clothStartTime = DateTime.now();
-      final cloth = await _clothService.fetchAll().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          print('Cloth fetch timed out');
-          return [];
-        },
-      ).catchError((e) {
-        print('Error fetching cloth: $e');
-        return <ClothItem>[];
-      });
-      print(
-          'Cloth fetched: ${cloth.length} items in ${DateTime.now().difference(clothStartTime).inMilliseconds}ms');
+      final cloth = await _clothService
+          .fetchAll()
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => [],
+          )
+          .catchError((e) => <ClothItem>[]);
 
-      final plasticStartTime = DateTime.now();
-      final plastic = await _plasticService.fetchAll().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          print('Plastic fetch timed out');
-          return [];
-        },
-      ).catchError((e) {
-        print('Error fetching plastic: $e');
-        return <PlasticItem>[];
-      });
-      print(
-          'Plastic fetched: ${plastic.length} items in ${DateTime.now().difference(plasticStartTime).inMilliseconds}ms');
+      final plastic = await _plasticService
+          .fetchAll()
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => [],
+          )
+          .catchError((e) => <PlasticItem>[]);
 
-      setState(() {
-        ewasteItems = ewaste;
-        clothItems = cloth;
-        plasticItems = plastic;
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() => isLoading = false);
       if (mounted) {
+        setState(() {
+          ewasteItems = ewaste;
+          clothItems = cloth;
+          plasticItems = plastic;
+          _processData(); // Process data once after fetch
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
@@ -109,8 +105,102 @@ class _TrackingScreenState extends State<TrackingScreen>
           ),
         );
       }
-      print('Error fetching items: $e');
     }
+  }
+
+  void _processData() {
+    // 1. Combine and Sort
+    _allItems = [
+      ...ewasteItems.map((item) => {'item': item, 'category': 'ewaste'}),
+      ...clothItems.map((item) => {'item': item, 'category': 'cloth'}),
+      ...plasticItems.map((item) => {'item': item, 'category': 'plastic'}),
+    ]..sort((a, b) {
+        final aTime = (a['item'] as dynamic).createdAt;
+        final bTime = (b['item'] as dynamic).createdAt;
+        return bTime.compareTo(aTime); // Newest first
+      });
+
+    // 2. Calculate Summary Stats
+    _totalItems = _allItems.length;
+
+    _pendingItems = 0;
+    _collectedItems = 0;
+    _deliveredItems = 0;
+    _totalPoints = 0;
+
+    for (var itemData in _allItems) {
+      final item = itemData['item'];
+      final status = (item as dynamic).status.toLowerCase();
+
+      // Count status
+      if (status == 'pending') {
+        _pendingItems++;
+      } else if (status == 'collected' || status == 'donated') {
+        _collectedItems++;
+      } else if ((item as dynamic).deliveryStatus?.toLowerCase() ==
+              'delivered' ||
+          status == 'delivered') {
+        _deliveredItems++;
+      }
+
+      // Sum points (only for collected/donated/delivered)
+      if (status == 'collected' ||
+          status == 'donated' ||
+          (item as dynamic).deliveryStatus?.toLowerCase() == 'delivered' ||
+          status == 'delivered') {
+        if (item is EwasteItem) {
+          _totalPoints += item.rewardPoints ?? 0;
+        } else if (item is ClothItem) {
+          _totalPoints += item.quantity; // Assuming quantity as points for now
+        } else if (item is PlasticItem) {
+          _totalPoints += item.points;
+        }
+      }
+    }
+
+    // 3. Apply initial filters
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    var result = _allItems;
+
+    // Category Filter
+    if (selectedCategory != 'All') {
+      result = result
+          .where((itemData) =>
+              itemData['category'] == selectedCategory.toLowerCase())
+          .toList();
+    }
+
+    // Search Filter
+    if (searchQuery.trim().isNotEmpty) {
+      final query = searchQuery.trim().toLowerCase();
+      result = result.where((itemData) {
+        final item = itemData['item'];
+        final category = itemData['category'] as String;
+
+        String searchText = '';
+        if (item is EwasteItem) {
+          searchText = item.itemName.toLowerCase();
+        } else if (item is ClothItem) {
+          searchText = '${item.type} ${item.condition}'.toLowerCase();
+        } else if (item is PlasticItem) {
+          searchText = '${item.itemName} ${item.plasticType}'.toLowerCase();
+        }
+
+        final location = (item as dynamic).location.toLowerCase();
+        final status = (item as dynamic).status.toLowerCase();
+        final itemCategory = category.toLowerCase();
+
+        return searchText.contains(query) ||
+            location.contains(query) ||
+            status.contains(query) ||
+            itemCategory.contains(query);
+      }).toList();
+    }
+
+    _filteredItems = result;
   }
 
   Color getStatusColor(String status) {
@@ -135,6 +225,9 @@ class _TrackingScreenState extends State<TrackingScreen>
     String location = '';
     String? imageUrl;
     DateTime createdAt;
+    DateTime? pickupScheduledAt;
+    DateTime? collectedAt;
+    DateTime? deliveredAt;
 
     if (item is EwasteItem) {
       title = item.itemName;
@@ -143,6 +236,9 @@ class _TrackingScreenState extends State<TrackingScreen>
       location = item.location;
       imageUrl = item.imageUrl;
       createdAt = item.createdAt;
+      pickupScheduledAt = item.pickupScheduledAt;
+      collectedAt = item.collectedAt;
+      deliveredAt = item.deliveredAt;
     } else if (item is ClothItem) {
       title = '${item.type} (${item.quantity})';
       subtitle = 'Condition: ${item.condition}';
@@ -150,6 +246,9 @@ class _TrackingScreenState extends State<TrackingScreen>
       location = item.location;
       imageUrl = item.imageUrl;
       createdAt = item.createdAt;
+      pickupScheduledAt = null;
+      collectedAt = null;
+      deliveredAt = null;
     } else if (item is PlasticItem) {
       title = item.itemName;
       subtitle = '${item.plasticType} - ${item.description}';
@@ -157,6 +256,9 @@ class _TrackingScreenState extends State<TrackingScreen>
       location = item.location;
       imageUrl = item.imageUrl;
       createdAt = item.createdAt;
+      pickupScheduledAt = null;
+      collectedAt = null;
+      deliveredAt = null;
     } else {
       return const SizedBox.shrink();
     }
@@ -164,7 +266,7 @@ class _TrackingScreenState extends State<TrackingScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -180,10 +282,10 @@ class _TrackingScreenState extends State<TrackingScreen>
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: category == 'ewaste'
-                        ? Colors.green.withOpacity(0.1)
+                        ? Colors.green.withValues(alpha: 0.1)
                         : category == 'cloth'
-                            ? Colors.indigo.withOpacity(0.1)
-                            : Colors.blue.withOpacity(0.1),
+                            ? Colors.indigo.withValues(alpha: 0.1)
+                            : Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -212,13 +314,19 @@ class _TrackingScreenState extends State<TrackingScreen>
                 imageUrl != null && imageUrl.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          imageUrl,
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
                           width: 60,
                           height: 60,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
+                          memCacheHeight: 200,
+                          placeholder: (context, url) => Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.image, color: Colors.grey),
+                          ),
+                          errorWidget: (context, url, error) => Container(
                             width: 60,
                             height: 60,
                             color: Colors.grey[200],
@@ -294,10 +402,10 @@ class _TrackingScreenState extends State<TrackingScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: getStatusColor(status).withOpacity(0.1),
+                    color: getStatusColor(status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: getStatusColor(status).withOpacity(0.3),
+                      color: getStatusColor(status).withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -322,6 +430,75 @@ class _TrackingScreenState extends State<TrackingScreen>
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            if (pickupScheduledAt != null ||
+                collectedAt != null ||
+                deliveredAt != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).cardColor.withValues(alpha: 0.5)
+                      : Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[700]!
+                        : Colors.grey[200]!,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Schedule & Timeline',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[300]
+                            : Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (pickupScheduledAt != null)
+                      Row(
+                        children: [
+                          Icon(Icons.schedule, size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pickup: ${pickupScheduledAt.toLocal().toString().split('.')[0]}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    if (collectedAt != null)
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              size: 16, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Collected: ${collectedAt.toLocal().toString().split('.')[0]}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    if (deliveredAt != null)
+                      Row(
+                        children: [
+                          Icon(Icons.local_shipping,
+                              size: 16, color: Colors.purple),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Delivered: ${deliveredAt.toLocal().toString().split('.')[0]}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -341,51 +518,6 @@ class _TrackingScreenState extends State<TrackingScreen>
   }
 
   Widget _buildSummaryDashboard() {
-    final totalItems =
-        ewasteItems.length + clothItems.length + plasticItems.length;
-    final pendingItems = [
-      ...ewasteItems.where((item) => item.status.toLowerCase() == 'pending'),
-      ...clothItems.where((item) => item.status.toLowerCase() == 'pending'),
-      ...plasticItems.where((item) => item.status.toLowerCase() == 'pending'),
-    ].length;
-    final collectedItems = [
-      ...ewasteItems.where((item) =>
-          item.status.toLowerCase() == 'collected' ||
-          item.status.toLowerCase() == 'donated'),
-      ...clothItems.where((item) =>
-          item.status.toLowerCase() == 'collected' ||
-          item.status.toLowerCase() == 'donated'),
-      ...plasticItems.where((item) =>
-          item.status.toLowerCase() == 'collected' ||
-          item.status.toLowerCase() == 'donated'),
-    ].length;
-    final deliveredItems = [
-      ...ewasteItems
-          .where((item) => item.deliveryStatus.toLowerCase() == 'delivered'),
-      ...clothItems.where((item) => item.status.toLowerCase() == 'delivered'),
-      ...plasticItems.where((item) => item.status.toLowerCase() == 'delivered'),
-    ].length;
-
-    // Only sum points for items that are collected, donated, or delivered
-    final totalPoints = ewasteItems
-            .where((item) =>
-                item.status.toLowerCase() == 'collected' ||
-                item.status.toLowerCase() == 'donated' ||
-                item.deliveryStatus.toLowerCase() == 'delivered')
-            .fold<int>(0, (sum, item) => sum + (item.rewardPoints ?? 0)) +
-        clothItems
-            .where((item) =>
-                item.status.toLowerCase() == 'collected' ||
-                item.status.toLowerCase() == 'donated' ||
-                item.deliveryStatus.toLowerCase() == 'delivered')
-            .fold<int>(0, (sum, item) => sum + (item.quantity ?? 0)) +
-        plasticItems
-            .where((item) =>
-                item.status.toLowerCase() == 'collected' ||
-                item.status.toLowerCase() == 'donated' ||
-                item.deliveryStatus.toLowerCase() == 'delivered')
-            .fold<int>(0, (sum, item) => sum + item.points);
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -412,7 +544,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                   child: _buildCompactMetricCard(
                     icon: Icons.inventory_2,
                     title: tr('total_items'),
-                    value: totalItems.toString(),
+                    value: _totalItems.toString(),
                     color: Colors.blue,
                     backgroundColor: Colors.blue.shade50,
                   ),
@@ -424,7 +556,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                   child: _buildCompactMetricCard(
                     icon: Icons.star,
                     title: 'Eco Points',
-                    value: totalPoints.toString(),
+                    value: _totalPoints.toString(),
                     color: Colors.amber,
                     backgroundColor: Colors.amber.shade50,
                   ),
@@ -436,7 +568,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                   child: _buildCompactMetricCard(
                     icon: Icons.schedule,
                     title: tr('pending'),
-                    value: pendingItems.toString(),
+                    value: _pendingItems.toString(),
                     color: Colors.orange,
                     backgroundColor: Colors.orange.shade50,
                   ),
@@ -448,7 +580,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                   child: _buildCompactMetricCard(
                     icon: Icons.check_circle,
                     title: tr('collected'),
-                    value: collectedItems.toString(),
+                    value: _collectedItems.toString(),
                     color: Colors.green,
                     backgroundColor: Colors.green.shade50,
                   ),
@@ -460,7 +592,7 @@ class _TrackingScreenState extends State<TrackingScreen>
                   child: _buildCompactMetricCard(
                     icon: Icons.local_shipping,
                     title: tr('delivered'),
-                    value: deliveredItems.toString(),
+                    value: _deliveredItems.toString(),
                     color: Colors.purple,
                     backgroundColor: Colors.purple.shade50,
                   ),
@@ -482,7 +614,7 @@ class _TrackingScreenState extends State<TrackingScreen>
   }) {
     return Card(
       elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
@@ -499,7 +631,7 @@ class _TrackingScreenState extends State<TrackingScreen>
             Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -521,7 +653,7 @@ class _TrackingScreenState extends State<TrackingScreen>
             Text(
               title,
               style: TextStyle(
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 fontSize: 9,
                 fontWeight: FontWeight.w500,
               ),
@@ -535,95 +667,112 @@ class _TrackingScreenState extends State<TrackingScreen>
     );
   }
 
+  Widget _buildCategoryFilterChip(String label, IconData icon) {
+    final isSelected = selectedCategory == label;
+    return FilterChip(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: isSelected ? Colors.white : Colors.grey[700],
+          ),
+          const SizedBox(width: 8),
+          Text(label.toUpperCase()),
+        ],
+      ),
+      selected: isSelected,
+      onSelected: (bool selected) {
+        if (selected) {
+          setState(() {
+            selectedCategory = label;
+            _applyFilters();
+          });
+        }
+      },
+      backgroundColor: Colors.white,
+      selectedColor: const Color(0xFF2E7D32),
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.grey[800],
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isSelected ? Colors.transparent : Colors.grey.shade300,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final allItems = [
-      ...ewasteItems.map((item) => {'item': item, 'category': 'ewaste'}),
-      ...clothItems.map((item) => {'item': item, 'category': 'cloth'}),
-      ...plasticItems.map((item) => {'item': item, 'category': 'plastic'}),
-    ]..sort((a, b) {
-        final aTime = (a['item'] as dynamic).createdAt;
-        final bTime = (b['item'] as dynamic).createdAt;
-        return bTime.compareTo(aTime); // Newest first
-      });
-
-    // Filter items based on selected category
-    final filteredItems = selectedCategory == 'All'
-        ? allItems
-        : allItems
-            .where((item) => item['category'] == selectedCategory.toLowerCase())
-            .toList();
-
     return Scaffold(
-      appBar: AppBar(
-        title: searchQuery.isEmpty
-            ? Text(
-                tr('my_donations'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                  letterSpacing: 0.5,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: AppBar(
+          title: !isSearchMode
+              ? Text(
+                  tr('my_donations'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    letterSpacing: 0.5,
+                  ),
+                )
+              : TextField(
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Search donations...',
+                    hintStyle: TextStyle(color: Colors.white70),
+                    border: InputBorder.none,
+                    suffixIcon: Icon(Icons.search, color: Colors.white),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      searchQuery = value;
+                      _applyFilters();
+                    });
+                  },
                 ),
-              )
-            : TextField(
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Search donations...',
-                  hintStyle: TextStyle(color: Colors.white70),
-                  border: InputBorder.none,
-                  suffixIcon: Icon(Icons.search, color: Colors.white),
+          flexibleSpace: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
+                    ),
+                  ),
                 ),
-                onChanged: (value) {
+          actions: [
+            if (!isSearchMode)
+              IconButton(
+                icon: const Icon(Icons.search, color: Colors.white, size: 28),
+                padding: const EdgeInsets.all(8),
+                onPressed: () {
                   setState(() {
-                    searchQuery = value;
+                    isSearchMode = true;
+                  });
+                },
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.clear, color: Colors.white, size: 28),
+                padding: const EdgeInsets.all(8),
+                onPressed: () {
+                  setState(() {
+                    isSearchMode = false;
+                    searchQuery = '';
+                    _applyFilters();
                   });
                 },
               ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)],
-            ),
-          ),
-        ),
-        actions: [
-          if (searchQuery.isEmpty)
-            IconButton(
-              icon: const Icon(Icons.search, color: Colors.white),
-              onPressed: () {
-                setState(() {
-                  searchQuery = ' '; // Trigger search mode
-                });
-              },
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.clear, color: Colors.white),
-              onPressed: () {
-                setState(() {
-                  searchQuery = '';
-                });
-              },
-            ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'All'),
-            Tab(text: 'E-Waste'),
-            Tab(text: 'Cloth'),
-            Tab(text: 'Plastic'),
           ],
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white.withOpacity(0.7),
-          onTap: (index) {
-            setState(() {
-              // Map tab indices to correct category names that match the stored data
-              selectedCategory = ['All', 'ewaste', 'cloth', 'plastic'][index];
-            });
-          },
         ),
       ),
       body: isLoading
@@ -631,45 +780,63 @@ class _TrackingScreenState extends State<TrackingScreen>
           : Column(
               children: [
                 _buildSummaryDashboard(),
+                // Category filter bar
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildCategoryFilterChip('All', Icons.all_inclusive),
+                        const SizedBox(width: 8),
+                        _buildCategoryFilterChip('ewaste', Icons.memory),
+                        const SizedBox(width: 8),
+                        _buildCategoryFilterChip('cloth', Icons.checkroom),
+                        const SizedBox(width: 8),
+                        _buildCategoryFilterChip('plastic', Icons.recycling),
+                      ],
+                    ),
+                  ),
+                ),
                 Expanded(
-                  child: filteredItems.isEmpty
+                  child: _filteredItems.isEmpty
                       ? Center(
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inventory_2_outlined,
-                                size: 64,
-                                color: Colors.grey[400],
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No donations found',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No donations found',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Your ${selectedCategory.toLowerCase()} donations will appear here',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Your ${selectedCategory.toLowerCase()} donations will appear here',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[500],
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        )
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ))
                       : RefreshIndicator(
                           onRefresh: fetchAllItems,
                           child: ListView.builder(
                             padding: const EdgeInsets.all(16),
-                            itemCount: filteredItems.length,
+                            itemCount: _filteredItems.length,
                             itemBuilder: (context, index) {
-                              final itemData = filteredItems[index];
+                              final itemData = _filteredItems[index];
                               return _buildItemCard(itemData['item'],
                                   itemData['category'] as String);
                             },
@@ -720,7 +887,7 @@ class TrackingDetailsSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -734,10 +901,10 @@ class TrackingDetailsSheet extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: category == 'ewaste'
-                        ? Colors.green.withOpacity(0.1)
+                        ? Colors.green.withValues(alpha: 0.1)
                         : category == 'cloth'
-                            ? Colors.indigo.withOpacity(0.1)
-                            : Colors.blue.withOpacity(0.1),
+                            ? Colors.indigo.withValues(alpha: 0.1)
+                            : Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -795,7 +962,7 @@ class TrackingDetailsSheet extends StatelessWidget {
               _buildTimelineStep(
                 icon: Icons.calendar_today,
                 title: 'Pickup Scheduled',
-                subtitle: pickupScheduledAt!.toLocal().toString().split('.')[0],
+                subtitle: pickupScheduledAt.toLocal().toString().split('.')[0],
                 isCompleted: true,
                 color: Colors.orange,
               ),
@@ -803,7 +970,7 @@ class TrackingDetailsSheet extends StatelessWidget {
               _buildTimelineStep(
                 icon: Icons.check_circle,
                 title: 'Collected',
-                subtitle: collectedAt!.toLocal().toString().split('.')[0],
+                subtitle: collectedAt.toLocal().toString().split('.')[0],
                 isCompleted: true,
                 color: Colors.green,
               ),
@@ -811,12 +978,12 @@ class TrackingDetailsSheet extends StatelessWidget {
               _buildTimelineStep(
                 icon: Icons.local_shipping,
                 title: 'Delivered',
-                subtitle: deliveredAt!.toLocal().toString().split('.')[0],
+                subtitle: deliveredAt.toLocal().toString().split('.')[0],
                 isCompleted: true,
                 color: Colors.purple,
               ),
             const SizedBox(height: 24),
-            if (trackingNotes != null && trackingNotes!.isNotEmpty) ...[
+            if (trackingNotes != null && trackingNotes.isNotEmpty) ...[
               Text(
                 'Tracking Notes',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -824,7 +991,7 @@ class TrackingDetailsSheet extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 12),
-              ...trackingNotes!.map((note) => Container(
+              ...trackingNotes.map((note) => Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(

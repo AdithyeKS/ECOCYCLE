@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/ewaste_item.dart';
 import '../services/ewaste_service.dart';
 
@@ -35,7 +36,7 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
           SnackBar(content: Text(tr('fetch_error'))),
         );
       }
-      print('Error fetching: $e');
+      // print(...);
     }
   }
 
@@ -97,7 +98,7 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       elevation: 4,
-                      shadowColor: Colors.black.withOpacity(0.1),
+                      shadowColor: Colors.black.withValues(alpha: 0.1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -116,14 +117,23 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(12),
                                       child: item.imageUrl.isNotEmpty
-                                          ? Image.network(
-                                              item.imageUrl,
+                                          ? CachedNetworkImage(
+                                              imageUrl: item.imageUrl,
                                               width: 70,
                                               height: 70,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error,
-                                                      stackTrace) =>
+                                              memCacheHeight: 200,
+                                              placeholder: (context, url) =>
                                                   Container(
+                                                width: 70,
+                                                height: 70,
+                                                color: Colors.grey[200],
+                                                child: const Icon(Icons.image,
+                                                    color: Colors.grey),
+                                              ),
+                                              errorWidget:
+                                                  (context, url, error) =>
+                                                      Container(
                                                 width: 70,
                                                 height: 70,
                                                 color: Colors.grey[200],
@@ -204,11 +214,11 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
                                         horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
                                       color: getStatusColor(item.status)
-                                          .withOpacity(0.1),
+                                          .withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: getStatusColor(item.status)
-                                            .withOpacity(0.3),
+                                            .withValues(alpha: 0.3),
                                         width: 1,
                                       ),
                                     ),
@@ -228,12 +238,12 @@ class _ViewEwasteScreenState extends State<ViewEwasteScreen> {
                                     decoration: BoxDecoration(
                                       color: getDeliveryStatusColor(
                                               item.deliveryStatus)
-                                          .withOpacity(0.1),
+                                          .withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: getDeliveryStatusColor(
                                                 item.deliveryStatus)
-                                            .withOpacity(0.3),
+                                            .withValues(alpha: 0.3),
                                         width: 1,
                                       ),
                                     ),

@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:easy_localization/easy_localization.dart';
-import '../models/ewaste_item.dart';
-import '../models/plastic_item.dart';
-import '../models/cloth_item.dart';
 import '../services/ewaste_service.dart';
 import '../services/plastic_service.dart';
 import '../services/cloth_service.dart';
-import '../core/supabase_config.dart';
 
 class AssignedPickupHistoryScreen extends StatefulWidget {
   const AssignedPickupHistoryScreen({super.key});

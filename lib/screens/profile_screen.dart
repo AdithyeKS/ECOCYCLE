@@ -1,7 +1,8 @@
 // lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
-import 'package:EcoCycle/screens/login_screen.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:ecocycle/screens/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,11 +12,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String? _displayName;
+  String? _firstName;
+  String? _lastName;
   String? _email;
   String? _phoneNumber;
-  // int? _age; // REMOVED
-  String? _address;
+  String? _houseName;
+  String? _pinCode;
   int _totalPoints = 0;
   bool _loading = true;
 
@@ -43,20 +45,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final res = await AppSupabase.client
           .from('profiles')
-          // MODIFIED: Removed 'age' from the select query
-          .select('full_name, phone_number, address, total_points')
+          .select(
+              'first_name, last_name, phone_number, house_name, pin_code, total_points')
           .eq('id', userId)
           .maybeSingle();
 
       if (res != null) {
         // res may be Map<String, dynamic> or dynamic — handle types safely
-        final dynamic fullNameVal = res['full_name'];
+        final dynamic firstNameVal = res['first_name'];
+        final dynamic lastNameVal = res['last_name'];
         final dynamic phoneVal = res['phone_number'];
-        // Removed age-related value fetching
-        final dynamic addressVal = res['address'];
+        final dynamic houseVal = res['house_name'];
+        final dynamic pinCodeVal = res['pin_code'];
         final dynamic pointsVal = res['total_points'];
-
-        // Removed age parsing block
 
         int parsedPoints = 0;
         if (pointsVal == null) {
@@ -68,25 +69,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         setState(() {
-          _displayName = fullNameVal?.toString();
+          _firstName = firstNameVal?.toString();
+          _lastName = lastNameVal?.toString();
           _phoneNumber = phoneVal?.toString();
-          // Removed setting _age
-          _address = addressVal?.toString();
+          _houseName = houseVal?.toString();
+          _pinCode = pinCodeVal?.toString();
           _totalPoints = parsedPoints;
         });
       } else {
         // If profile row missing, create it and reload
         await AppSupabase.client.from('profiles').insert({
           'id': userId,
-          'full_name': _email?.split('@').first ?? '',
+          'first_name': _email?.split('@').first ?? 'User',
           'total_points': 0,
         });
         // Reload once after insert
         await _loadProfile();
         return;
       }
-    } catch (e, st) {
-      debugPrint('Error loading profile: $e\n$st');
+    } catch (e) {
+      debugPrint('Error loading profile: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -128,15 +130,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     switch (field) {
       case 'phone':
-        title = 'Edit Phone Number';
-        label = 'Phone Number';
+        title = tr('edit_phone');
+        label = tr('phone');
         keyboardType = TextInputType.phone;
         break;
-      // REMOVED case 'age':
-      case 'address':
-        title = 'Edit Address';
-        label = 'Address';
+      case 'house_name':
+        title = tr('edit_house');
+        label = tr('house_name');
         keyboardType = TextInputType.streetAddress;
+        break;
+      case 'pin_code':
+        title = tr('edit_pincode');
+        label = tr('pin_code');
+        keyboardType = TextInputType.number;
         break;
       default:
         return;
@@ -154,16 +160,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Cancel'),
+            child: Text(tr('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Save'),
+            child: Text(tr('save')),
           ),
         ],
       ),
     );
 
+    if (!mounted) return;
     if (val == null) return;
 
     try {
@@ -176,16 +183,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         case 'phone':
           data['phone_number'] = val.trim().isEmpty ? null : val.trim();
           break;
-        // REMOVED case 'age':
-        case 'address':
-          data['address'] = val.trim().isEmpty ? null : val.trim();
+        case 'house_name':
+          data['house_name'] = val.trim().isEmpty ? null : val.trim();
+          break;
+        case 'pin_code':
+          data['pin_code'] = val.trim().isEmpty ? null : val.trim();
           break;
       }
 
-      // FIXED: Use upsert instead of update to ensure row exists
-      final response = await AppSupabase.client.from('profiles').upsert(data);
-
-      print('Save response for $field: $response');
+      await AppSupabase.client.from('profiles').upsert(data);
 
       // Update local state immediately
       setState(() {
@@ -193,20 +199,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           case 'phone':
             _phoneNumber = val.trim().isEmpty ? null : val.trim();
             break;
-          // REMOVED case 'age':
-          case 'address':
-            _address = val.trim().isEmpty ? null : val.trim();
+          case 'house_name':
+            _houseName = val.trim().isEmpty ? null : val.trim();
+            break;
+          case 'pin_code':
+            _pinCode = val.trim().isEmpty ? null : val.trim();
             break;
         }
       });
 
       if (mounted) {
+        String successKey = field == 'phone'
+            ? 'phone_saved_success'
+            : field == 'house_name'
+                ? 'house_saved_success'
+                : 'pincode_saved_success';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label saved successfully')),
+          SnackBar(content: Text(tr(successKey))),
         );
       }
     } catch (e) {
-      debugPrint('Failed to update $field: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to save $field: $e')),
@@ -216,53 +228,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _editName() async {
-    final controller = TextEditingController(text: _displayName ?? '');
-    final val = await showDialog<String?>(
+    final firstController = TextEditingController(text: _firstName ?? '');
+    final lastController = TextEditingController(text: _lastName ?? '');
+
+    final confirmed = await showDialog<bool?>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Name'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Full Name'),
+        title: Text(tr('edit_name')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: firstController,
+              decoration: InputDecoration(labelText: tr('first_name')),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: lastController,
+              decoration: InputDecoration(labelText: tr('last_name')),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(tr('cancel')),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Save'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(tr('save')),
           ),
         ],
       ),
     );
 
-    if (val == null || val.trim().isEmpty) return;
+    if (!mounted) return;
+    if (confirmed != true) return;
 
     try {
       final user = AppSupabase.client.auth.currentUser;
       if (user == null) return;
 
-      // FIXED: Use upsert with complete data object
-      final response = await AppSupabase.client
-          .from('profiles')
-          .upsert({'id': user.id, 'full_name': val.trim()});
+      await AppSupabase.client.from('profiles').upsert({
+        'id': user.id,
+        'first_name': firstController.text.trim(),
+        'last_name': lastController.text.trim(),
+      });
 
-      print('Name save response: $response');
-
-      // Update local state immediately
       setState(() {
-        _displayName = val.trim();
+        _firstName = firstController.text.trim();
+        _lastName = lastController.text.trim();
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name saved successfully')),
+          SnackBar(content: Text(tr('name_saved_success'))),
         );
       }
     } catch (e) {
-      debugPrint('Failed to update name: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to save name: $e')),
@@ -277,7 +300,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(tr('profile')),
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -304,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -329,9 +352,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            _displayName ??
-                                                _email?.split('@').first ??
-                                                'Unknown User',
+                                            '${_firstName ?? ''} ${_lastName ?? ''}'
+                                                    .trim()
+                                                    .isEmpty
+                                                ? (_email?.split('@').first ??
+                                                    'Unknown User')
+                                                : '${_firstName ?? ''} ${_lastName ?? ''}',
                                             style: const TextStyle(
                                               fontSize: 22,
                                               fontWeight: FontWeight.bold,
@@ -378,9 +404,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        'Total EcoPoints',
-                                        style: TextStyle(
+                                      Text(
+                                        tr('total_ecopoints'),
+                                        style: const TextStyle(
                                           color: Colors.white70,
                                           fontSize: 16,
                                         ),
@@ -416,7 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -425,9 +451,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Personal Information',
-                            style: TextStyle(
+                          Text(
+                            tr('personal_info'),
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -435,16 +461,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 20),
                           _profileField(
                             icon: Icons.phone_outlined,
-                            label: 'Phone',
+                            label: tr('phone'),
                             value: _phoneNumber ?? 'Not set',
                             onEdit: () => _editField('phone', _phoneNumber),
                           ),
-                          // The 'Age' field has been removed.
                           _profileField(
-                            icon: Icons.location_on_outlined,
-                            label: 'Address',
-                            value: _address ?? 'Not set',
-                            onEdit: () => _editField('address', _address),
+                            icon: Icons.home_outlined,
+                            label: tr('house_name'),
+                            value: _houseName ?? 'Not set',
+                            onEdit: () => _editField('house_name', _houseName),
+                          ),
+                          _profileField(
+                            icon: Icons.pin_drop_outlined,
+                            label: tr('pin_code'),
+                            value: _pinCode ?? 'Not set',
+                            onEdit: () => _editField('pin_code', _pinCode),
                           ),
                         ],
                       ),
@@ -460,7 +491,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -469,9 +500,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Account Status',
-                            style: TextStyle(
+                          Text(
+                            tr('account_status'),
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -481,8 +512,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: user?.emailConfirmedAt != null
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.orange.withOpacity(0.1),
+                                  ? Colors.green.withValues(alpha: 0.1)
+                                  : Colors.orange.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -499,8 +530,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Expanded(
                                   child: Text(
                                     user?.emailConfirmedAt != null
-                                        ? 'Email verified'
-                                        : 'Email not verified',
+                                        ? tr('email_verified')
+                                        : tr('email_not_verified'),
                                     style: TextStyle(
                                       color: user?.emailConfirmedAt != null
                                           ? Colors.green
@@ -519,14 +550,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 final shouldSignOut = await showDialog<bool>(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
-                                    title: const Text('Confirm Sign Out'),
-                                    content: const Text(
-                                        'Are you sure you want to sign out?'),
+                                    title: Text(tr('confirm_logout')),
+                                    content: Text(tr('logout_confirm_msg')),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.of(ctx).pop(false),
-                                        child: const Text('Cancel'),
+                                        child: Text(tr('cancel')),
                                       ),
                                       FilledButton(
                                         onPressed: () =>
@@ -534,7 +564,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         style: FilledButton.styleFrom(
                                           backgroundColor: Colors.red.shade400,
                                         ),
-                                        child: const Text('Sign Out'),
+                                        child: Text(tr('logout')),
                                       ),
                                     ],
                                   ),
@@ -543,28 +573,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 if (shouldSignOut == true) {
                                   try {
                                     await AppSupabase.client.auth.signOut();
-                                    if (context.mounted) {
-                                      Navigator.of(context).pushAndRemoveUntil(
-                                        MaterialPageRoute(
-                                          builder: (_) => const LoginScreen(),
-                                        ),
-                                        (r) => false,
-                                      );
-                                    }
+                                    if (!context.mounted) return;
+                                    Navigator.of(context).pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => const LoginScreen(),
+                                      ),
+                                      (r) => false,
+                                    );
                                   } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                            content:
-                                                Text('Failed to sign out: $e')),
-                                      );
-                                    }
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content:
+                                              Text('Failed to sign out: $e')),
+                                    );
                                   }
                                 }
                               },
                               icon: const Icon(Icons.logout),
-                              label: const Text('Sign out'),
+                              label: Text(tr('logout')),
                               style: FilledButton.styleFrom(
                                 backgroundColor: Colors.red.shade400,
                               ),

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
-import 'package:EcoCycle/screens/home_shell.dart';
-import 'package:EcoCycle/services/profile_service.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/screens/home_shell.dart';
+import 'package:ecocycle/services/profile_service.dart';
 
 class ProfileCompletionScreen extends StatefulWidget {
   final VoidCallback toggleTheme;
   const ProfileCompletionScreen({super.key, required this.toggleTheme});
 
   @override
-  State<ProfileCompletionScreen> createState() => _ProfileCompletionScreenState();
+  State<ProfileCompletionScreen> createState() =>
+      _ProfileCompletionScreenState();
 }
 
 class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
@@ -30,9 +31,11 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       // Automatically sync metadata to the database profiles table
       await profileService.updateProfile(
         userId: user.id,
-        fullName: metadata?['full_name'] ?? 'User',
+        firstName: metadata?['first_name'] ?? 'User',
+        lastName: metadata?['last_name'] ?? '',
         phone: metadata?['phone'] ?? '',
-        address: metadata?['address'] ?? '',
+        houseName: metadata?['house_name'] ?? '',
+        pinCode: metadata?['pin_code'] ?? '',
       );
 
       if (mounted) {
@@ -45,7 +48,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
         );
       }
     } catch (e) {
-      debugPrint('Auto-sync error: $e');
+      // print(...);
     }
   }
 

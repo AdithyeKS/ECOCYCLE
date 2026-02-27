@@ -7,7 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:EcoCycle/main.dart';
+import 'package:ecocycle/main.dart';
 
 void main() {
   testWidgets('App launches smoke test', (WidgetTester tester) async {

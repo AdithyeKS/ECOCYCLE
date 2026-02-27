@@ -1,4 +1,5 @@
-import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:flutter/foundation.dart';
 import '../models/volunteer_schedule.dart';
 import '../models/volunteer_assignment.dart';
 
@@ -203,13 +204,11 @@ class VolunteerScheduleService {
   Future<List<VolunteerSchedule>> fetchAllSchedules() async {
     try {
       final response = await _supabase.from('volunteer_schedules').select();
-      print(
-          '✓ Volunteer schedules fetched: ${(response as List).length} schedules');
       return (response as List)
           .map((json) => VolunteerSchedule.fromJson(json))
           .toList();
     } catch (e) {
-      print('✗ Error fetching volunteer schedules: $e');
+      // print(...);
       rethrow;
     }
   }
@@ -231,24 +230,74 @@ class VolunteerScheduleService {
     required String taskType,
     required DateTime scheduledDate,
     String? notes,
+    String wasteType = 'e-waste',
   }) async {
-    // 1. Record the formal assignment
+    // 1. Strict Limit Check
+    final currentCount =
+        await getAssignmentCountForVolunteerOnDate(volunteerId, scheduledDate);
+    if (currentCount >= 2) {
+      throw Exception(
+          'Volunteer has already reached the maximum limit of 2 tasks for this date.');
+    }
+
+    debugPrint(
+        'DEBUG: Creating assignment for item $itemId to volunteer $volunteerId on $scheduledDate');
     await _supabase.from('volunteer_assignments').insert({
       'volunteer_id': volunteerId,
-      'item_id': itemId,
+      'waste_item_id': itemId, // Required by DB
+      'task_id': itemId, // Legacy column (Required by current DB)
+      'waste_type': wasteType, // Required by DB check constraint
       'task_type': taskType,
       'status': 'pending',
       'scheduled_date': scheduledDate.toIso8601String().split('T')[0],
       'notes': notes,
       'assigned_at': DateTime.now().toIso8601String(),
     });
+    debugPrint('DEBUG: Assignment record created successfully');
 
-    // 2. Synchronize the e-waste item's status and schedule metadata
-    await _supabase.from('ewaste_items').update({
-      'delivery_status': 'assigned',
+    // 2. Synchronize the specific waste item's status and schedule metadata
+    String tableName;
+    String statusField = 'delivery_status';
+    String statusValue = 'assigned';
+    Map<String, dynamic> updateData = {
+      statusField: statusValue,
       'assigned_agent_id': volunteerId,
-      'pickup_scheduled_at': scheduledDate.toIso8601String(),
-    }).eq('id', itemId);
+      'pickup_scheduled_at':
+          scheduledDate.toIso8601String(), // This column exists in all 3 tables
+    };
+
+    // Table-specific overrides
+    switch (wasteType.toLowerCase()) {
+      case 'plastic':
+        tableName = 'plastic_items';
+        updateData['status'] = 'Approved';
+        break;
+      case 'cloth':
+        tableName = 'cloth_donations';
+        updateData['status'] = 'Approved';
+        // Note: pickup_scheduled_at in cloth_donations might be named slightly differently in some schemas,
+        // but EwasteService.schedulePickup uses 'pickup_scheduled_at'.
+        // Let's verify ClothService.schedulePickup uses 'pickup_scheduled_at' too.
+        break;
+      default:
+        tableName = 'ewaste_items';
+        updateData['status'] = 'assigned';
+    }
+
+    await _supabase.from(tableName).update(updateData).eq('id', itemId);
+
+    // 3. Auto-hide volunteer if they reached the daily limit (2 tasks)
+    try {
+      final count = await getAssignmentCountForVolunteerOnDate(
+          volunteerId, scheduledDate);
+      if (count >= 2) {
+        debugPrint(
+            'DEBUG: Volunteer $volunteerId reached limit ($count). Marking unavailable.');
+        await setAvailability(volunteerId, scheduledDate, false);
+      }
+    } catch (e) {
+      debugPrint('DEBUG: Error updating volunteer availability: $e');
+    }
   }
 
   /// Searches for volunteers available within a flexible date window.
@@ -303,5 +352,90 @@ class VolunteerScheduleService {
       'assigned_agent_id': null,
       'pickup_scheduled_at': null,
     }).eq('id', itemId);
+  }
+
+  /// Counts the number of assignments for a volunteer on a specific date.
+  /// Modified to query item tables directly to avoid RLS/sync issues with volunteer_assignments.
+  Future<int> getAssignmentCountForVolunteerOnDate(
+      String volunteerId, DateTime date) async {
+    // defined start and end of the requested date
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
+    final startStr = startOfDay.toIso8601String();
+    final endStr = endOfDay.toIso8601String();
+
+    try {
+      // Query all 3 tables in parallel for items assigned to this volunteer on this date
+      // We count items that are NOT delivered or cancelled (i.e., active tasks)
+      final futures = [
+        _supabase
+            .from('ewaste_items')
+            .select('id')
+            .eq('assigned_agent_id', volunteerId)
+            .gte('pickup_scheduled_at', startStr)
+            .lte('pickup_scheduled_at', endStr)
+            .neq('delivery_status', 'cancelled')
+            .neq('delivery_status', 'delivered'),
+        _supabase
+            .from('plastic_items')
+            .select('id')
+            .eq('assigned_agent_id', volunteerId)
+            .gte('pickup_scheduled_at', startStr)
+            .lte('pickup_scheduled_at', endStr)
+            .neq('delivery_status', 'cancelled')
+            .neq('delivery_status', 'delivered'),
+        _supabase
+            .from('cloth_donations')
+            .select('id')
+            .eq('assigned_agent_id', volunteerId)
+            .gte('pickup_scheduled_at', startStr)
+            .lte('pickup_scheduled_at', endStr)
+            .neq('delivery_status', 'cancelled')
+            .neq('delivery_status', 'delivered'),
+      ];
+
+      final results = await Future.wait(futures);
+
+      int totalCount = 0;
+      for (final response in results) {
+        totalCount += (response as List).length;
+      }
+
+      debugPrint(
+          'DEBUG: Volunteer $volunteerId has $totalCount active item assignments on $startStr');
+      return totalCount;
+    } catch (e) {
+      debugPrint('DEBUG: Error counting assignments: $e');
+      return 0;
+    }
+  }
+
+  /// Updates a volunteer's availability for today
+  Future<void> updateTodayAvailability(
+      String volunteerId, bool isAvailable) async {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    // Check if schedule exists for today
+    final existing = await _supabase
+        .from('volunteer_schedules')
+        .select()
+        .eq('volunteer_id', volunteerId)
+        .eq('date', today)
+        .maybeSingle();
+
+    if (existing != null) {
+      await _supabase
+          .from('volunteer_schedules')
+          .update({'is_available': isAvailable}).eq('id', existing['id']);
+    } else {
+      // Create new schedule entry if it doesn't exist
+      await _supabase.from('volunteer_schedules').insert({
+        'volunteer_id': volunteerId,
+        'date': today,
+        'is_available': isAvailable,
+      });
+    }
   }
 }

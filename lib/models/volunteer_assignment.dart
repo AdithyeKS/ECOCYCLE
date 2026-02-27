@@ -32,7 +32,10 @@ class VolunteerAssignment {
       id: json['id'] as String,
       volunteerId: json['volunteer_id'] as String,
       wasteItemId: json['waste_item_id'] as String? ??
-          json['ewaste_item_id'] as String, // Backward compatibility
+          json['ewaste_item_id'] as String? ??
+          json['task_id'] as String? ??
+          json['item_id'] as String? ??
+          '', // Handle all possible column name variations
       wasteType: json['waste_type'] as String? ??
           'e-waste', // Default for backward compatibility
       taskType: json['task_type'] as String,

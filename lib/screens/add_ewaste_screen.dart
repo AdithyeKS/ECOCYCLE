@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:math'; // For random OTP generation
+import 'package:ecocycle/core/gemini_config.dart';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,11 +16,11 @@ import '../services/ewaste_service.dart';
 // ---------------------------------------------------------------------------------------
 // ⭐ ACTION REQUIRED: PASTE YOUR GOOGLE GEMINI API KEY HERE ⭐
 // ---------------------------------------------------------------------------------------
-const String _GEMINI_API_KEY = GeminiConfig.apiKey;
+const String _geminiApiKey = GeminiConfig.apiKey;
 // ---------------------------------------------------------------------------------------
 
-const String _GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
-const String _REVERSE_GEOCODING_URL =
+const String _geminiModel = "gemini-2.5-flash-preview-09-2025";
+const String _reverseGeocodingUrl =
     'https://nominatim.openstreetmap.org/reverse?format=json&lat={LAT}&lon={LON}&zoom=18&addressdetails=1';
 
 class AddEwasteScreen extends StatefulWidget {
@@ -36,10 +38,14 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
   bool _isLoading = false;
   final _ewasteService = EwasteService();
   int _estimatedPoints = 0; // NEW: State variable for estimated points
+  int _quantity = 1; // NEW: Quantity state variable
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  // Removed duplicate _descriptionController declaration
   final _locationController = TextEditingController();
+  double? _latitude; // NEW: Store latitude
+  double? _longitude; // NEW: Store longitude
 
   // Helper widget for professional card styling
   Widget _inputCard({required Widget child}) {
@@ -51,7 +57,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.08),
+            color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -71,18 +77,14 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
 
   // NEW FUNCTION: Calculates and updates points based on the category ID
   void _updateEstimatedPoints(String categoryId) {
-    if (categoryId.toUpperCase() == 'NON_EWASTE') {
-      setState(() => _estimatedPoints = 0);
-      return;
-    }
-
     // Calls the now-public method in EwasteService
     try {
       final points = _ewasteService.calculatePointsForCategory(categoryId);
-      setState(() => _estimatedPoints = points);
+      // Logic: Base points + 10 points for each extra item
+      setState(() => _estimatedPoints = points + ((_quantity - 1) * 10));
     } catch (_) {
-      setState(() =>
-          _estimatedPoints = 50); // Default low estimate if calculation fails
+      setState(() => _estimatedPoints =
+          50 + ((_quantity - 1) * 10)); // Default low estimate
     }
   }
 
@@ -112,13 +114,18 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       final lat = position.latitude;
       final lon = position.longitude;
 
-      final url = _REVERSE_GEOCODING_URL
+      _latitude = lat; // Store coordinates
+      _longitude = lon;
+
+      final url = _reverseGeocodingUrl
           .replaceFirst('{LAT}', lat.toString())
           .replaceFirst('{LON}', lon.toString());
 
@@ -133,10 +140,12 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
         throw Exception('Failed to get address: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('Geolocation Error: $e');
+      // print(...);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching location: ${e.toString()}')),
+          const SnackBar(
+              content: Text(
+                  'Unable to retrieve your current location. Please enter your address manually.')),
         );
         _locationController.text = '';
       }
@@ -158,7 +167,8 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     });
 
     try {
-      if (_GEMINI_API_KEY.isEmpty) {
+      // ENHANCED PROMPT: Human detection, image quality validation, and specific non-eWaste detection
+      if (_geminiApiKey.isEmpty) {
         throw Exception(
             'Gemini API Key is not set. Please update the key in the code.');
       }
@@ -167,22 +177,35 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       final base64Image = base64Encode(bytes);
       final mimeType = lookupMimeType(xFile.path) ?? 'image/jpeg';
 
-      // FIX 1: Enhanced prompt to strictly enforce e-waste check
-      final validCategories = ewasteCategories.map((c) => c.id).toList();
-      validCategories.add("NON_EWASTE");
-
       final userQuery = """
-      Analyze this image. 
-      1. Determine if the item is E-WASTE (electronic waste). 
-      2. If it is E-WASTE, identify the item and suggest the best matching 'category_id' from this list: ${ewasteCategories.map((c) => c.id).join(', ')}.
-      3. If the item is NOT E-WASTE (e.g., general trash, furniture, food, or apparel), you MUST return "NON_EWASTE" as the 'category_id'.
-      
-      Respond ONLY with a JSON object. The JSON structure is: 
-      {"item_name":"[Concise Name]", "description":"[2-3 sentence description and material notes]", "category_id":"[Suggested ID or NON_EWASTE]"}
+      Analyze this image carefully for e-waste submission.
+
+      FIRST: Check for human presence
+      - If ANY human (person, hand, face, or body part) is visible in the image, immediately reject with error.
+
+      SECOND: E-waste validation
+      - Determine if the main item is E-WASTE (electronic waste like computers, phones, TVs, etc.)
+      - If it is E-WASTE, identify the item and suggest the best matching 'category_id' from this list: ${ewasteCategories.map((c) => c.id).join(', ')}
+      - If the item is NOT E-WASTE, identify the specific type (e.g., cloth, plastic, furniture, food, etc.) and reject accordingly
+
+      RESPONSE RULES:
+      - If human detected: Set "error_type": "human_detected", "error_message": "Please try again and upload a clear picture of e-waste."
+      - If not e-waste and item is cloth/apparel: Set "error_type": "non_ewaste_cloth", "error_message": "This is a photo of cloth. Only electronic waste items are allowed here."
+      - If not e-waste and item is plastic: Set "error_type": "non_ewaste_plastic", "error_message": "This is a photo of plastic. Only electronic waste items are allowed here."
+      - If not e-waste (other types): Set "error_type": "non_ewaste_other", "error_message": "This item is not electronic waste. Only electronic waste items are allowed here."
+      - If valid e-waste: Provide item details without error fields
+
+      Respond ONLY with a JSON object in one of these formats:
+
+      For VALID e-waste:
+      {"item_name":"[Concise Name]", "description":"[2-3 sentence description and material notes]", "category_id":"[Suggested ID]"}
+
+      For REJECTIONS:
+      {"error_type":"[error_type]", "error_message":"[specific message]"}
       """;
 
       final apiUrl =
-          "https://generativelanguage.googleapis.com/v1beta/models/$_GEMINI_MODEL:generateContent?key=$_GEMINI_API_KEY";
+          "https://generativelanguage.googleapis.com/v1beta/models/$_geminiModel:generateContent?key=$_geminiApiKey";
 
       final payload = {
         "contents": [
@@ -202,9 +225,17 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
             "properties": {
               "item_name": {"type": "STRING"},
               "description": {"type": "STRING"},
-              "category_id": {"type": "STRING"}
+              "category_id": {"type": "STRING"},
+              "error_type": {"type": "STRING"},
+              "error_message": {"type": "STRING"}
             },
-            "propertyOrdering": ["item_name", "description", "category_id"]
+            "propertyOrdering": [
+              "item_name",
+              "description",
+              "category_id",
+              "error_type",
+              "error_message"
+            ]
           }
         }
       };
@@ -222,24 +253,31 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
         final aiData = jsonDecode(jsonString);
 
         if (aiData != null) {
-          final detectedCategoryId =
-              aiData['category_id']?.toString() ?? 'other';
+          // Check for error responses first
+          final errorType = aiData['error_type']?.toString();
+          final errorMessage = aiData['error_message']?.toString();
 
-          if (detectedCategoryId.toUpperCase() == 'NON_EWASTE') {
-            // Block submission if it's not e-waste
+          if (errorType != null && errorMessage != null) {
+            // Handle rejection cases: human detected, poor quality, or non-eWaste
             setState(() {
-              _titleController.text =
-                  aiData['item_name'] ?? 'Not Electronic Waste';
-              _descriptionController.text =
-                  aiData['description'] ?? 'Item rejected.';
+              _titleController.text = 'Image Rejected';
+              _descriptionController.text = errorMessage;
               _imageFile = null; // Clear image to prevent accidental submission
-              _selectedCategoryId =
-                  'tv'; // Reset to a default valid category for UI consistency
+              _pickedXFile = null; // Clear the picked file as well
+              _selectedCategoryId = '1'; // Reset to a default valid category
               _estimatedPoints = 0; // Ensure points are zeroed
             });
-            throw Exception(
-                "The detected item is not classified as electronic waste. Please try again with a valid electronic item.");
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(errorMessage)),
+              );
+            }
+            return; // Stop processing without throwing
           }
+
+          // Handle valid responses
+          final detectedCategoryId =
+              aiData['category_id']?.toString() ?? 'other';
 
           final categoryExists =
               ewasteCategories.any((c) => c.id == detectedCategoryId);
@@ -261,10 +299,12 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
             'Gemini API failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      debugPrint('AI Detection Error: $e');
+      // print(...);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI Detection Error: ${e.toString()}')),
+          const SnackBar(
+              content: Text(
+                  'Unable to analyze the image. Please ensure the photo is clear and try again.')),
         );
         _titleController.text = '';
         _descriptionController.text = '';
@@ -307,27 +347,35 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
 
     final user = _ewasteService.supabase.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Error: Session expired. Please log in again.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Your session has expired. Please log in again to continue.')),
+        );
+      }
       return;
     }
     final userId = user.id;
 
     if (!_formKey.currentState!.validate() || _pickedXFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(tr('please_fill_all_fields'))),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('please_fill_all_fields'))),
+        );
+      }
       return;
     }
 
+    if (!mounted) return;
     if (_selectedCategoryId.toUpperCase() == 'NON_EWASTE') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Submission rejected: Item is not classified as electronic waste.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'This item does not qualify as electronic waste. Please submit only electronic devices for recycling.')),
+        );
+      }
       return;
     }
 
@@ -351,6 +399,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
 
       // 3. Database Insertion
       try {
+        final otpCode = _generateOtp();
         await _ewasteService.insertEwaste(
           userId: userId, // Use the reliably fetched user ID
           categoryId: _selectedCategoryId,
@@ -358,6 +407,10 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
           description: _descriptionController.text,
           location: _locationController.text,
           imageUrl: imageUrl,
+          quantity: _quantity, // Pass quantity to service
+          latitude: _latitude,
+          longitude: _longitude,
+          otpCode: otpCode,
         );
 
         if (mounted) {
@@ -367,7 +420,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
           );
         }
       } on PostgrestException catch (e) {
-        debugPrint('❌ POSTGREST (DB) ERROR: ${e.message}');
+        // print(...);
         throw Exception(
             'Database Error: ${e.message}. (Check RLS/Foreign Keys)');
       }
@@ -379,7 +432,10 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $errorMessage')),
+          SnackBar(
+              content: Text(
+            errorMessage,
+          )),
         );
       }
     } finally {
@@ -411,12 +467,14 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add E-Waste Item'),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient:
-                LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
-          ),
-        ),
+        flexibleSpace: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                      colors: [Color(0xFF2E7D32), Color(0xFF60AD5E)]),
+                ),
+              ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -473,7 +531,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                                 color: Theme.of(context)
                                     .colorScheme
                                     .primary
-                                    .withOpacity(0.6),
+                                    .withValues(alpha: 0.6),
                               ),
                               const SizedBox(height: 12),
                               const Text('Tap to open camera & analyze',
@@ -492,14 +550,14 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                                   icon: const Icon(Icons.close),
                                   style: IconButton.styleFrom(
                                     backgroundColor:
-                                        Colors.black.withOpacity(0.5),
+                                        Colors.black.withValues(alpha: 0.5),
                                     foregroundColor: Colors.white,
                                   ),
                                 ),
                               ),
                               if (_isLoading)
                                 Container(
-                                  color: Colors.black.withOpacity(0.5),
+                                  color: Colors.black.withValues(alpha: 0.5),
                                   child: const Center(
                                     child: Column(
                                       mainAxisAlignment:
@@ -568,12 +626,58 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                     ),
                     const SizedBox(height: 16),
 
+                    // NEW: Quantity Selector
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Quantity',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove),
+                                onPressed: _quantity > 1
+                                    ? () {
+                                        setState(() {
+                                          _quantity--;
+                                          _updateEstimatedPoints(
+                                              _selectedCategoryId);
+                                        });
+                                      }
+                                    : null,
+                              ),
+                              Text(
+                                '$_quantity',
+                                style: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () {
+                                  setState(() {
+                                    _quantity++;
+                                    _updateEstimatedPoints(_selectedCategoryId);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
                     // Detected Category Display
                     Container(
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -599,7 +703,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
                       padding: const EdgeInsets.symmetric(
                           vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.teal.withOpacity(0.1),
+                        color: Colors.teal.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.teal.shade200),
                       ),
@@ -695,5 +799,11 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
         ),
       ),
     );
+  }
+
+  String _generateOtp() {
+    // Generate a random 6-digit number
+    var rng = Random();
+    return (100000 + rng.nextInt(900000)).toString();
   }
 }

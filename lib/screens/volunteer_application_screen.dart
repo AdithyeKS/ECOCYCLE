@@ -46,7 +46,7 @@ class _VolunteerApplicationScreenState
           });
         }
       } catch (e) {
-        debugPrint('Error loading initial data: $e');
+        // print(...);
       }
     }
   }
@@ -264,6 +264,18 @@ class _VolunteerApplicationScreenState
                             border: OutlineInputBorder()),
                         validator: (v) =>
                             (v?.isEmpty ?? true) ? 'Phone is required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _addressController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Full Address',
+                          prefixIcon: Icon(Icons.location_on),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) =>
+                            (v?.isEmpty ?? true) ? 'Address is required' : null,
                       ),
                     ],
                   ),

@@ -1,14 +1,11 @@
-# Splash Screen Update TODO
+# TODO: Enhance Plastic Waste Image Validation
 
-## Completed Tasks
+## Tasks
 
-- [x] Modified lib/main.dart to update splash screen
-- [x] Removed large app logo and app name
-- [x] Added centered rotating progress indicator with download icon
-- [x] Added clean "Loading..." text below the icon
-- [x] Implemented gradient background using green shades
-
-## Followup Steps
-
-- [x] Test the app launch to verify splash screen appearance
-- [x] Ensure gradient matches app theme and looks good
+- [x] Modify \_detectPlastic method to show AlertDialog for rejection cases instead of snackbar
+- [x] For NON_PLASTIC: Show dialog "Invalid Item Type" with message "This is not a plastic waste item. Please add only plastic waste items here."
+- [x] For poor_quality: Show dialog "Image Quality Issue" with message about clarity
+- [x] For human_detected: Show dialog "Invalid Image" with message
+- [x] In all rejection cases, clear image, picked file, and reset fields
+- [x] Ensure submit button is disabled without valid image
+- [x] Test the changes

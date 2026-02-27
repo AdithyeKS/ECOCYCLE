@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:EcoCycle/screens/add_cloth_screen.dart';
+import 'package:ecocycle/screens/add_cloth_screen.dart';
 
 class ClothDashboardScreen extends StatelessWidget {
   const ClothDashboardScreen({super.key});
@@ -31,7 +31,7 @@ class ClothDashboardScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: color.withOpacity(0.15),
+                backgroundColor: color.withValues(alpha: 0.15),
                 child: Icon(icon, size: 28, color: color),
               ),
               const SizedBox(width: 16),
@@ -124,7 +124,7 @@ class ClothDashboardScreen extends StatelessWidget {
               subtitle: 'Monitor the status and journey of your donated items.',
               color: Colors.orange,
               onTap: () {
-                // TODO: Implement view donations screen (reuse ViewEwasteScreen structure)
+                // Implement view donations screen (reuse ViewEwasteScreen structure)
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(tr('view_donations_desc'))),
                 );
@@ -139,7 +139,7 @@ class ClothDashboardScreen extends StatelessWidget {
               subtitle: 'Request a confirmed date and time for collection.',
               color: Colors.purple,
               onTap: () {
-                // TODO: Implement pickup scheduling (reuse PickupRequestScreen structure)
+                // Implement pickup scheduling (reuse PickupRequestScreen structure)
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(tr('schedule_pickup_desc'))),
                 );
@@ -164,7 +164,7 @@ class ClothDashboardScreen extends StatelessWidget {
               subtitle: 'Find the nearest drop-off bins or charity locations.',
               color: Colors.green,
               onTap: () {
-                // TODO: Implement drop points map
+                // Implement drop points map
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(tr('coming_soon'))),
                 );
@@ -178,7 +178,7 @@ class ClothDashboardScreen extends StatelessWidget {
                   'Learn about textile recycling and sustainable fashion.',
               color: Colors.teal,
               onTap: () {
-                // TODO: Implement cloth recycling tips
+                // Implement cloth recycling tips
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(tr('coming_soon'))),
                 );

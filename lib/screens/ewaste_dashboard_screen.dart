@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:EcoCycle/screens/add_ewaste_screen.dart';
-import 'package:EcoCycle/screens/view_ewaste_screen.dart';
-import 'package:EcoCycle/screens/tracking_screen.dart';
-import 'package:EcoCycle/screens/rewards_screen.dart';
-import 'package:EcoCycle/screens/pickup_request_screen.dart';
+import 'package:ecocycle/screens/add_ewaste_screen.dart';
+import 'package:ecocycle/screens/view_ewaste_screen.dart';
+import 'package:ecocycle/screens/tracking_screen.dart';
+import 'package:ecocycle/screens/rewards_screen.dart';
+import 'package:ecocycle/screens/pickup_request_screen.dart';
 
 class EwasteDashboardScreen extends StatelessWidget {
   const EwasteDashboardScreen({super.key});
@@ -35,7 +35,7 @@ class EwasteDashboardScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor: color.withOpacity(0.15),
+                backgroundColor: color.withValues(alpha: 0.15),
                 child: Icon(icon, size: 28, color: color),
               ),
               const SizedBox(width: 16),

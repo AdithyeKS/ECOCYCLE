@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:EcoCycle/core/supabase_config.dart';
+import 'package:ecocycle/app_theme.dart';
+import 'package:ecocycle/core/supabase_config.dart';
+import 'package:ecocycle/screens/update_password_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -9,297 +12,209 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  // ADD: Form key for validation
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
+  final _emailController = TextEditingController();
+  final _tokenController = TextEditingController();
+
   bool _busy = false;
+  bool _isTokenSent = false;
   String? _msg;
 
-  // Regex for general email validation
   static final _emailRegex =
       RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
-  Future<void> _sendReset() async {
-    // ADD: Validation check before proceeding
-    if (!_formKey.currentState!.validate()) return;
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _tokenController.dispose();
+    super.dispose();
+  }
 
+  // Step 1: Send the 8-digit token to the user's email
+  Future<void> _sendResetToken() async {
+    if (!_formKey.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _msg = null;
     });
+
     try {
-      await AppSupabase.client.auth.resetPasswordForEmail(
-        _email.text.trim(),
-      );
-      _msg =
-          'Password reset link has been sent to your email. Please check your inbox and spam folder.';
+      await AppSupabase.client.auth
+          .resetPasswordForEmail(_emailController.text.trim());
+      setState(() {
+        _isTokenSent = true;
+        _msg = 'An 8-digit token has been sent to your email.';
+      });
     } catch (e) {
-      _msg = _mapPasswordResetError(e.toString());
+      setState(() => _msg = 'Error: Could not send token. Please try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  String _mapPasswordResetError(String rawError) {
-    final lowerError = rawError.toLowerCase();
+  // Step 2: Verify the 8-digit token entered by the user
+  Future<void> _verifyToken() async {
+    if (_tokenController.text.length < 8) {
+      setState(() => _msg = "Please enter the full 8-digit code.");
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _msg = null;
+    });
 
-    if (lowerError.contains('user not found') ||
-        lowerError.contains('not found')) {
-      return 'No account found with this email address.';
-    }
-    if (lowerError.contains('invalid email') ||
-        lowerError.contains('email format')) {
-      return 'Please enter a valid email address.';
-    }
-    if (lowerError.contains('network') ||
-        lowerError.contains('connection') ||
-        lowerError.contains('timeout')) {
-      return 'Network connection error. Please check your internet and try again.';
-    }
-    return 'Unable to send reset link at this time. Please try again later.';
-  }
+    try {
+      // Verifies token using 'recovery' type for password resets
+      await AppSupabase.client.auth.verifyOTP(
+        email: _emailController.text.trim(),
+        token: _tokenController.text.trim(),
+        type: OtpType.recovery,
+      );
 
-  // Custom Input Decoration for the sleek look
-  InputDecoration _customInputDecoration(
-      {required String labelText,
-      required IconData prefixIcon,
-      Widget? suffixIcon}) {
-    return InputDecoration(
-      labelText: labelText,
-      prefixIcon:
-          Icon(prefixIcon, color: Theme.of(context).colorScheme.primary),
-      suffixIcon: suffixIcon,
-      fillColor: Theme.of(context)
-          .cardColor
-          .withOpacity(0.8), // Slightly transparent background
-      filled: true,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none, // Remove border for a cleaner look
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide:
-            BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide:
-            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-      ),
-    );
+      if (mounted) {
+        // Navigate to the Update Password Screen once verified
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const UpdatePasswordScreen()),
+        );
+      }
+    } catch (e) {
+      setState(
+          () => _msg = "Invalid token. Please check your email and try again.");
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    // FORCE LIGHT THEME
+    final theme = AppTheme.light;
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 1. Gradient Background Layer (PWASE Theme)
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.teal.shade800,
-                  Colors.green.shade700,
-                  Colors.green.shade900,
-                ],
-              ),
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.teal.shade800, Colors.green.shade900],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-
-          // 2. Thematic Elements Layer (Simulated E-Waste/Recycling Blobs)
-          Positioned(
-            top: -50,
-            left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.15),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 40)
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -30,
-            right: -30,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.yellow.shade700.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(50),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.yellow.shade700.withOpacity(0.2),
-                      blurRadius: 30)
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 200,
-            right: 10,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.lightGreenAccent.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-          // 3. Main Content Layer (Centered Card)
-          Center(
+          child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+              padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Card(
                   elevation: 20,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)),
-                  color: theme.cardColor.withOpacity(0.95),
+                  color: Colors.white.withValues(alpha: 0.95),
                   child: Padding(
-                    padding: const EdgeInsets.all(30),
-                    // WRAP: Wrap content in a Form widget
+                    padding: const EdgeInsets.all(32),
                     child: Form(
-                      key: _formKey, // ASSIGN: Assign the form key
+                      key: _formKey,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Center(
-                            child: Column(
-                              children: [
-                                Image.asset('assets/images/ecocycle.png',
-                                    height: 80),
-                                const SizedBox(height: 16),
-                                Text('Forgot Password',
-                                    style: theme.textTheme.headlineMedium
-                                        ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: theme.colorScheme.primary)),
-                                const SizedBox(height: 8),
-                                Text(
-                                    'Enter your email to receive a reset link.',
-                                    style: theme.textTheme.bodyMedium),
-                                const SizedBox(height: 24),
-                              ],
+                          Image.asset('assets/images/ecocycle.png', height: 70),
+                          const SizedBox(height: 20),
+                          Text(
+                            _isTokenSent ? 'Verify Code' : 'Reset Password',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade900,
                             ),
                           ),
-
-                          // Email
-                          TextFormField(
-                            controller: _email,
-                            decoration: _customInputDecoration(
+                          const SizedBox(height: 10),
+                          Text(
+                            _isTokenSent
+                                ? 'Enter the 8-digit code sent to your email.'
+                                : 'Enter your email to receive a reset token.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 25),
+                          if (!_isTokenSent)
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: InputDecoration(
                                 labelText: 'Email',
-                                prefixIcon: Icons.email_outlined),
-                            keyboardType: TextInputType.emailAddress,
-                            // ADD: Validator for required email format
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Please enter your email address.';
-                              }
-                              if (!_emailRegex.hasMatch(v.trim())) {
-                                return 'Please enter a valid email address.';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          if (_msg != null) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: _msg!.contains('sent')
-                                    ? Colors.green.shade900.withOpacity(0.15)
-                                    : Colors.red.shade900.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _msg!.contains('sent')
-                                      ? Colors.green.shade400
-                                      : Colors.red.shade400,
-                                  width: 1,
-                                ),
+                                prefixIcon: const Icon(Icons.email_outlined),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    _msg!.contains('sent')
-                                        ? Icons.check_circle_outline
-                                        : Icons.error_outline,
-                                    color: _msg!.contains('sent')
-                                        ? Colors.green.shade400
-                                        : Colors.red.shade400,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      _msg!,
-                                      style: TextStyle(
-                                        color: _msg!.contains('sent')
-                                            ? Colors.green.shade400
-                                            : Colors.red.shade400,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              validator: (v) =>
+                                  (v == null || !_emailRegex.hasMatch(v.trim()))
+                                      ? 'Enter a valid email'
+                                      : null,
+                            )
+                          else
+                            TextFormField(
+                              controller: _tokenController,
+                              keyboardType: TextInputType.number,
+                              maxLength: 8, // Set to 8 digits
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                letterSpacing: 6,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              decoration: InputDecoration(
+                                counterText: "",
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                hintText: '00000000', // 8 placeholders
                               ),
                             ),
-                            const SizedBox(height: 8),
+                          if (_msg != null) ...[
+                            const SizedBox(height: 15),
+                            Text(
+                              _msg!,
+                              style: TextStyle(
+                                color: _msg!.contains('sent')
+                                    ? Colors.green
+                                    : Colors.red,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
-
-                          FilledButton(
-                            onPressed: _busy ? null : _sendReset,
-                            style: FilledButton.styleFrom(
-                                backgroundColor: Colors
-                                    .red.shade400, // Using red for danger/reset
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                          const SizedBox(height: 30),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 55,
+                            child: FilledButton(
+                              onPressed: _busy
+                                  ? null
+                                  : (_isTokenSent
+                                      ? _verifyToken
+                                      : _sendResetToken),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: _isTokenSent
+                                    ? Colors.green.shade700
+                                    : Colors.red.shade400,
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12))),
-                            child: _busy
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: Colors.white))
-                                : const Text('Send Reset Link',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16)),
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: _busy
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white)
+                                  : Text(
+                                      _isTokenSent
+                                          ? 'Confirm Code'
+                                          : 'Get Token',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
+                                    ),
+                            ),
                           ),
-
-                          const SizedBox(height: 16),
-                          OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: OutlinedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                side: BorderSide(
-                                    color: theme.colorScheme.primary),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12))),
-                            child: Text('Back to Login',
-                                style: TextStyle(
-                                    color: theme.colorScheme.primary,
-                                    fontSize: 16)),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Back to Login'),
                           ),
                         ],
                       ),
@@ -309,7 +224,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
