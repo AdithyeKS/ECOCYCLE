@@ -8,6 +8,7 @@ import 'package:ecocycle/screens/update_password_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ecocycle/widgets/network_observer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,9 +94,11 @@ class _EcoCycleAppState extends State<EcoCycleApp> {
         // Show Splash Screen if timer hasn't finished OR auth is still waiting
         if (_showSplash ||
             snapshot.connectionState == ConnectionState.waiting) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            home: const SplashScreen(),
+          return NetworkObserver(
+            child: const MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: SplashScreen(),
+            ),
           );
         }
 
@@ -118,16 +121,18 @@ class _EcoCycleAppState extends State<EcoCycleApp> {
           initialHome = LoginScreen(onThemeToggle: _toggleTheme);
         }
 
-        return MaterialApp(
-          title: 'EcoCycle',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          themeMode: _themeMode,
-          localizationsDelegates: context.localizationDelegates,
-          supportedLocales: context.supportedLocales,
-          locale: context.locale,
-          home: initialHome,
+        return NetworkObserver(
+          child: MaterialApp(
+            title: 'EcoCycle',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: _themeMode,
+            localizationsDelegates: context.localizationDelegates,
+            supportedLocales: context.supportedLocales,
+            locale: context.locale,
+            home: initialHome,
+          ),
         );
       },
     );
