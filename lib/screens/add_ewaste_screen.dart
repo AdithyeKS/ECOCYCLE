@@ -19,7 +19,7 @@ import '../services/ewaste_service.dart';
 const String _geminiApiKey = GeminiConfig.apiKey;
 // ---------------------------------------------------------------------------------------
 
-const String _geminiModel = "gemini-2.5-flash-preview-09-2025";
+const String _geminiModel = "gemini-2.5-flash";
 const String _reverseGeocodingUrl =
     'https://nominatim.openstreetmap.org/reverse?format=json&lat={LAT}&lon={LON}&zoom=18&addressdetails=1';
 
@@ -186,6 +186,7 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
       SECOND: E-waste validation
       - Determine if the main item is E-WASTE (electronic waste like computers, phones, TVs, etc.)
       - If it is E-WASTE, identify the item and suggest the best matching 'category_id' from this list: ${ewasteCategories.map((c) => c.id).join(', ')}
+        (Hint: 1=TVs/Monitors, 2=Mobile Devices, 3=Computers, 4=Home Appliances, 5=Computer Peripherals like mice/keyboards, 6=Entertainment, 7=Batteries, 8=Other)
       - If the item is NOT E-WASTE, identify the specific type (e.g., cloth, plastic, furniture, food, etc.) and reject accordingly
 
       RESPONSE RULES:
@@ -299,12 +300,14 @@ class _AddEwasteScreenState extends State<AddEwasteScreen> {
             'Gemini API failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      // print(...);
+      final errorMsg = e.toString().contains('Exception:')
+          ? e.toString().split('Exception:')[1].trim()
+          : e.toString();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Unable to analyze the image. Please ensure the photo is clear and try again.')),
+          SnackBar(
+              content: Text('Analysis failed: $errorMsg'),
+              duration: const Duration(seconds: 6)),
         );
         _titleController.text = '';
         _descriptionController.text = '';

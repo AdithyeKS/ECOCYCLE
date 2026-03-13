@@ -15,7 +15,7 @@ import '../services/plastic_service.dart';
 import '../core/gemini_config.dart';
 
 const String _newGeminiKey = GeminiConfig.apiKey;
-const String _modelName = "gemini-2.5-flash-preview-09-2025";
+const String _modelName = "gemini-2.5-flash";
 
 class AddPlasticScreen extends StatefulWidget {
   const AddPlasticScreen({super.key});

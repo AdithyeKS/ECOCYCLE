@@ -805,10 +805,15 @@ class _AdminDashboardState extends State<AdminDashboard>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => DeliveredItemsScreen(
-                                ewasteItems: ewasteItems,
-                                plasticItems: plasticItems,
-                                clothItems: clothItems,
+                              builder: (context) => Theme(
+                                data: _isDarkMode
+                                    ? ThemeData.dark()
+                                    : ThemeData.light(),
+                                child: DeliveredItemsScreen(
+                                  ewasteItems: ewasteItems,
+                                  plasticItems: plasticItems,
+                                  clothItems: clothItems,
+                                ),
                               ),
                             ),
                           );

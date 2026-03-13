@@ -23,7 +23,7 @@ class AddClothScreen extends StatefulWidget {
 class _AddClothScreenState extends State<AddClothScreen> {
   String? _aiError;
   final String _geminiApiKey = GeminiConfig.apiKey;
-  final String _geminiModel = "gemini-2.5-flash-preview-09-2025";
+  final String _geminiModel = "gemini-2.5-flash";
   final _formKey = GlobalKey<FormState>();
   final _locationController = TextEditingController();
   final _quantityController = TextEditingController();
